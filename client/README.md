@@ -71,3 +71,19 @@ export default defineConfig([
   },
 ])
 ```
+
+
+## Testing identity-service locally
+
+- The client dev server proxies `/api` to `http://localhost:3001` (see `vite.config.ts`). This avoids CORS while developing.
+- Start the backend identity service (recommended via Docker Compose):
+  - `docker compose up --build`
+- Start the frontend:
+  - `cd client`
+  - `npm install`
+  - `npm run dev`
+- Open the app in the browser (Vite usually on `http://localhost:5173`) and use the **Test Auth UI** on the main page to Register / Login / Refresh / Logout with the identity-service.
+
+Notes:
+- The identity-service endpoints are: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh-token`, `POST /api/auth/logout`.
+- If you prefer not to use the proxy, enable CORS on `identity-service/src/main.ts` with `app.enableCors(...)`.

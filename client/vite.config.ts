@@ -4,4 +4,10 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Proxy /api requests to the identity-service during development to avoid CORS
+    proxy: {
+      '/api': 'http://localhost:3001',
+    },
+  },
 })
