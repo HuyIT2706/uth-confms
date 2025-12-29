@@ -11,7 +11,9 @@ describe('ConferenceServiceController', () => {
       providers: [ConferenceServiceService],
     }).compile();
 
-    conferenceServiceController = app.get<ConferenceServiceController>(ConferenceServiceController);
+    conferenceServiceController = app.get<ConferenceServiceController>(
+      ConferenceServiceController,
+    );
   });
 
   describe('root', () => {

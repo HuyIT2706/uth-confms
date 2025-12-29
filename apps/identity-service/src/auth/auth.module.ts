@@ -23,8 +23,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         secret: config.get<string>('JWT_ACCESS_SECRET') || 'access_secret',
         signOptions: {
           // jose types prefer number; default 15 minutes
-          expiresIn:
-            Number(config.get<string>('JWT_ACCESS_EXPIRES_IN')) || 900,
+          expiresIn: Number(config.get<string>('JWT_ACCESS_EXPIRES_IN')) || 900,
         },
       }),
     }),
@@ -33,4 +32,3 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   controllers: [AuthController],
 })
 export class AuthModule {}
-

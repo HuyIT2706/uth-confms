@@ -3,7 +3,9 @@ import { ConferenceServiceService } from './conference-service.service';
 
 @Controller()
 export class ConferenceServiceController {
-  constructor(private readonly conferenceServiceService: ConferenceServiceService) {}
+  constructor(
+    private readonly conferenceServiceService: ConferenceServiceService,
+  ) {}
 
   @Get()
   getHello(): string {

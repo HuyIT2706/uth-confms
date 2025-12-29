@@ -11,7 +11,9 @@ describe('SubmissionServiceController', () => {
       providers: [SubmissionServiceService],
     }).compile();
 
-    submissionServiceController = app.get<SubmissionServiceController>(SubmissionServiceController);
+    submissionServiceController = app.get<SubmissionServiceController>(
+      SubmissionServiceController,
+    );
   });
 
   describe('root', () => {

@@ -49,10 +49,7 @@ export class UsersService {
     return user;
   }
 
-  async changePassword(
-    userId: string,
-    dto: ChangePasswordDto,
-  ): Promise<void> {
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -89,4 +86,3 @@ export class UsersService {
     await this.usersRepository.save(user);
   }
 }
-

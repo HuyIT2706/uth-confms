@@ -1,49 +1,53 @@
 import { Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
-import type { AppRoute } from './routes.config.tsx'
+import { createBrowserRouter, redirect, type RouteObject } from 'react-router-dom'
+import { authService } from './lib/authService'
+import type { AppRoute } from './routes.config'
+import { appRoutes } from './routes.config'
 import MainLayout from './layouts/MainLayout'
 import RequireAuth from './components/RequireAuth'
 import Loading from './Loading'
-import { appRoutes } from './routes.config.tsx'
 import ErrorPage from './pages/ErrorPage'
+import type { LazyExoticComponent, ComponentType } from 'react'
 
-// Ensure the imported routes are treated with the explicit AppRoute type
-const typedRoutes = appRoutes as AppRoute[]
+async function requireAuthLoader() {
+  try {
+    await authService.ensureAccessToken()
+    return null
+  } catch {
+    throw redirect('/login')
+  }
+}
 
-// Import Forbidden page to include route
-import Forbidden from './pages/Forbidden'
-
-// Map our simple appRoutes into the shape expected by createBrowserRouter
-const children = typedRoutes.map((r: AppRoute) => {
-  const Comp = r.element
-  let element = (
+function makeElement(
+  Comp: LazyExoticComponent<ComponentType<any>>,
+  auth?: boolean,
+  roles?: string[]
+) {
+  const content = (
     <Suspense fallback={<Loading />}>
       <Comp />
     </Suspense>
   )
+  return auth ? <RequireAuth allowedRoles={roles}>{content}</RequireAuth> : content
+}
 
-  // Wrap route automatically if auth flag set
-  if (r.auth) {
-    element = <RequireAuth allowedRoles={r.roles}>{element}</RequireAuth>
+function toRouteObject(r: AppRoute): RouteObject {
+  return {
+    path: r.path === '/' ? undefined : r.path,
+    index: r.path === '/',
+    element: makeElement(r.element, r.auth, r.roles),
+    handle: r.handle,
+    loader: r.auth ? (r.loader ?? requireAuthLoader) : undefined,
+    children: r.children?.length ? r.children.map(toRouteObject) : undefined,
   }
-
-  if (r.path === '/') {
-    return { index: true, element, handle: r.handle }
-  }
-
-  return { path: r.path.replace(/^[/]/, ''), element, handle: r.handle }
-})
-
-// Include forbidden route explicitly
-children.push({ path: 'forbidden', element: <Forbidden />, handle: { title: 'Forbidden' } })
+}
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <MainLayout />,
     errorElement: <ErrorPage />,
-    children,
-    // generic errorElement could be added here (omitted for brevity)
+    children: appRoutes.map(toRouteObject),
   },
 ])
 

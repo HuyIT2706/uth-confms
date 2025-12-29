@@ -3,7 +3,9 @@ import { SubmissionServiceService } from './submission-service.service';
 
 @Controller()
 export class SubmissionServiceController {
-  constructor(private readonly submissionServiceService: SubmissionServiceService) {}
+  constructor(
+    private readonly submissionServiceService: SubmissionServiceService,
+  ) {}
 
   @Get()
   getHello(): string {

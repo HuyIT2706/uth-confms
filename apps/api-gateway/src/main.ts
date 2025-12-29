@@ -13,7 +13,7 @@ async function bootstrap() {
       changeOrigin: true,
     }),
   );
-  
+
   // 2. Chuyển hướng request /api/auth -> Identity Service (3001)
   app.use(
     '/api/auth',

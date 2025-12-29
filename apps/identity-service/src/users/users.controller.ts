@@ -41,4 +41,3 @@ export class UsersController {
     return { message: 'Password reset successful' };
   }
 }
-

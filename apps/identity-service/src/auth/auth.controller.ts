@@ -27,12 +27,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  logout(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: RefreshTokenDto,
-  ) {
+  logout(@CurrentUser('sub') userId: string, @Body() dto: RefreshTokenDto) {
     // userId được guard xác thực, sử dụng để log / kiểm tra nếu cần
     return this.authService.logout(dto);
   }
 }
-

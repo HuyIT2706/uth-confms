@@ -5,7 +5,7 @@ import { webcrypto, randomUUID } from 'crypto';
 
 async function bootstrap() {
   // Ensure global crypto + randomUUID for libraries expecting WebCrypto on Node 18
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+
   const g: any = global as any;
   if (typeof g.crypto === 'undefined') {
     g.crypto = webcrypto;

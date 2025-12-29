@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -8,6 +9,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const auth = useAuth()
   type LocationState = { from?: { pathname?: string } }
 
   async function handleLogin(e: React.FormEvent) {
@@ -23,8 +25,7 @@ export default function Login() {
       const json = await res.json()
       if (!res.ok) setError(json.message || JSON.stringify(json))
       else {
-        localStorage.setItem('accessToken', json.accessToken)
-        localStorage.setItem('refreshToken', json.refreshToken)
+        auth.setTokens(json.accessToken, json.refreshToken)
         const from = ((location.state as LocationState)?.from?.pathname) || '/profile'
         navigate(from)
       }
@@ -51,3 +52,4 @@ export default function Login() {
     </div>
   )
 }
+

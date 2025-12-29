@@ -11,7 +11,9 @@ describe('ReviewServiceController', () => {
       providers: [ReviewServiceService],
     }).compile();
 
-    reviewServiceController = app.get<ReviewServiceController>(ReviewServiceController);
+    reviewServiceController = app.get<ReviewServiceController>(
+      ReviewServiceController,
+    );
   });
 
   describe('root', () => {

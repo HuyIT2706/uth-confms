@@ -25,7 +25,7 @@ import { RefreshToken } from './auth/entities/refresh-token.entity';
         const database = config.get<string>('DB_DATABASE') || 'db_identity';
 
         // Debug log to confirm actual DB config being used
-        // eslint-disable-next-line no-console
+
         console.log(
           `[Identity-Service] DB -> host=${host} port=${port} user=${username} db=${database}`,
         );
@@ -38,7 +38,7 @@ import { RefreshToken } from './auth/entities/refresh-token.entity';
           password,
           database,
           entities: [User, RefreshToken],
-          synchronize: true, 
+          synchronize: true,
         };
       },
     }),

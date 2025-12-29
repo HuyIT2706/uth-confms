@@ -1,73 +1,119 @@
 import { lazy } from 'react'
+import { redirect } from 'react-router-dom'
+import { authFetch } from './lib/authFetch'
 import type { LazyExoticComponent, ComponentType } from 'react'
 
-// Import helpers allow us to prefetch the JS chunk when needed
 type ImportFn = () => Promise<{ default: ComponentType<unknown> }>
 
-const importTestAuth: ImportFn = () => import('./TestAuth')
+const importHome: ImportFn = () => import('./TestAuth')          // sau này thay bằng Dashboard thật
 const importRegister: ImportFn = () => import('./pages/Register')
 const importLogin: ImportFn = () => import('./pages/Login')
 const importProfile: ImportFn = () => import('./pages/Profile')
+const importForbidden: ImportFn = () => import('./pages/Forbidden')
 const importNotFound: ImportFn = () => import('./pages/NotFound')
 
-// Lazy-loaded page components (used at runtime)
-const TestAuth = lazy(importTestAuth)
+const Home = lazy(importHome)
 const Register = lazy(importRegister)
 const Login = lazy(importLogin)
 const Profile = lazy(importProfile)
+const Forbidden = lazy(importForbidden)
 const NotFound = lazy(importNotFound)
 
 export type AppRoute = {
-  // Optional unique key for programmatic linking/prefetching
   key?: string
   path: string
-  // The lazy element used when route is rendered
   element: LazyExoticComponent<ComponentType<unknown>>
-  // The underlying import function (useful for prefetch)
   importFn?: ImportFn
   auth?: boolean
   roles?: string[]
   handle?: { title?: string; breadcrumb?: string; preload?: boolean }
+  loader?: () => Promise<any>
   children?: AppRoute[]
 }
 
-/**
- * Centralized route definitions for the app.
- * Features:
- * - `importFn` can be called to prefetch a route's JS chunk
- * - `key` is optional and useful for programmatic navigation helpers
- * - `handle.title` is used by `MainLayout` for document.title
- */
 export const appRoutes: AppRoute[] = [
-  { key: 'home', path: '/', element: TestAuth, importFn: importTestAuth, handle: { title: 'Home — UTH', preload: true } },
-  { key: 'register', path: '/register', element: Register, importFn: importRegister, handle: { title: 'Đăng ký — UTH' } },
-  { key: 'login', path: '/login', element: Login, importFn: importLogin, handle: { title: 'Đăng nhập — UTH' } },
-  // profile requires auth; example allowed roles provided
-  { key: 'profile', path: '/profile', element: Profile, importFn: importProfile, auth: true, roles: ['author', 'reviewer', 'chair', 'admin'], handle: { title: 'Profile — UTH' } },
-  { key: 'notfound', path: '*', element: NotFound, importFn: importNotFound, handle: { title: '404 — Not found' } },
+  {
+    key: 'home',
+    path: '/',
+    element: Home,
+    importFn: importHome,
+    handle: { title: 'Home — UTH', preload: true },
+  },
+  {
+    key: 'register',
+    path: '/register',
+    element: Register,
+    importFn: importRegister,
+    handle: { title: 'Đăng ký — UTH' },
+  },
+  {
+    key: 'login',
+    path: '/login',
+    element: Login,
+    importFn: importLogin,
+    handle: { title: 'Đăng nhập — UTH' },
+  },
+  {
+    key: 'profile',
+    path: '/profile',
+    element: Profile,
+    importFn: importProfile,
+    auth: true,
+    roles: ['author', 'reviewer', 'chair', 'admin'],
+    handle: { title: 'Profile — UTH' },
+    loader: async () => {
+      const res = await authFetch('/api/users/me')
+      if (!res.ok) {
+        if (res.status === 401) throw redirect('/login')
+        if (res.status === 403) throw redirect('/forbidden')
+        throw new Response(await res.text(), { status: res.status })
+      }
+      const user = await res.json()
+
+      // Optional: frontend double-check role
+      const allowedRoles = ['author', 'reviewer', 'chair', 'admin']
+      if (!allowedRoles.includes(user.role)) {
+        throw redirect('/forbidden')
+      }
+
+      return user
+    },
+  },
+  {
+    key: 'forbidden',
+    path: '/forbidden',
+    element: Forbidden,
+    importFn: importForbidden,
+    handle: { title: '403 — Forbidden — UTH' },
+  },
+  {
+    key: 'notfound',
+    path: '*',
+    element: NotFound,
+    importFn: importNotFound,
+    handle: { title: '404 — Not Found — UTH' },
+  },
 ]
 
-// Simple helper object teams can import to avoid hardcoding paths
 export const ROUTES = {
   HOME: '/',
   REGISTER: '/register',
   LOGIN: '/login',
   PROFILE: '/profile',
   FORBIDDEN: '/forbidden',
-}
+} as const
 
-/**
- * Prefetch a route by key or path. Returns a promise that resolves when
- * the module is loaded (or rejects if not found).
- */
+// Prefetch helpers
 export function prefetchRouteByKey(key: string) {
   const route = appRoutes.find((r) => r.key === key)
-  if (!route || !route.importFn) return Promise.reject(new Error('route or importFn not found'))
+  if (!route) throw new Error(`Route with key "${key}" not found`)
+  if (!route.importFn) throw new Error(`Route "${key}" has no importFn`)
   return route.importFn()
 }
 
 export function prefetchRouteByPath(path: string) {
   const route = appRoutes.find((r) => r.path === path)
-  if (!route || !route.importFn) return Promise.reject(new Error('route or importFn not found'))
+  if (!route) throw new Error(`Route with path "${path}" not found`)
+  if (!route.importFn) throw new Error(`Route "${path}" has no importFn`)
   return route.importFn()
 }

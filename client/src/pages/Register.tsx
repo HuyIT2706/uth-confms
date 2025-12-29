@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 function validateEmail(email: string) {
   return /\S+@\S+\.\S+/.test(email)
@@ -18,6 +19,7 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const navigate = useNavigate()
+  const auth = useAuth()
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
@@ -41,8 +43,7 @@ export default function Register() {
         setError(json.message || JSON.stringify(json))
       } else {
         setSuccess('Đăng ký thành công')
-        if (json.accessToken) localStorage.setItem('accessToken', json.accessToken)
-        if (json.refreshToken) localStorage.setItem('refreshToken', json.refreshToken)
+        auth.setTokens(json.accessToken, json.refreshToken)
         setTimeout(() => navigate('/profile'), 800)
       }
     } catch (err: unknown) {
