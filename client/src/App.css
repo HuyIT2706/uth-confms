@@ -38,3 +38,42 @@ body {
 .login-form input { width: 100%; padding:10px; margin-top:8px; }
 .login-form button { margin-top:8px }
 
+.card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.06) }
+.muted { color: #556; }
+.terms { display:flex; align-items:center; gap:8px; margin-top:12px }
+.eye { position:absolute; right:8px; top:8px; background:transparent; border:none; cursor:pointer; color:#006 }
+
+/* Page background similar to Figma */
+body {
+	background: linear-gradient(180deg, #e9fbfb 0%, #f3fdfe 100%);
+}
+
+@media (max-width: 900px) {
+	.register-page { flex-direction: column; padding: 16px }
+	.register-left img { max-width: 100%; height: auto }
+}
+
+/* --- Pixel tweak styles to better match Figma design --- */
+.container { max-width: 1200px; margin: 0 auto; }
+.register-page { align-items: stretch; }
+.register-left { background: linear-gradient(180deg,#f6ffff,#f0fbfb); display:flex; align-items:center; justify-content:center; padding: 36px; }
+.register-left img { width: 520px; height: auto; border-radius: 12px; box-shadow: 0 6px 18px rgba(3,58,58,0.04) }
+.register-right { display:flex; flex-direction:column; justify-content:flex-start; padding: 36px 40px; }
+.register-right h1 { margin: 6px 0 2px; font-size: 26px; color:#0b4b4a }
+.register-right .muted { margin-bottom: 14px }
+.register-form input { height:44px; padding: 10px 14px; border-radius: 6px; border:1px solid #d8eaea; background:white }
+.register-form .row input { box-shadow:none }
+.register-form label.terms { color:#425; font-size:13px }
+.register-form .actions button { width:100%; background:#008b88; border-radius:6px; padding:12px; font-weight:600; box-shadow: 0 6px 0 rgba(0,0,0,0.02) }
+.register-form .actions button:disabled { opacity: 0.6 }
+.register-right .small-note { text-align:center; margin-top:12px; color:#587; font-size:13px }
+
+.login-page { display:flex; flex-direction:column; gap:12px; }
+.login-page h2 { margin:0 0 8px }
+.login-page .login-form { padding-top:6px }
+.login-form .error, .register-form .error { background: #fff0f0; padding:8px; border-radius:6px; border:1px solid #ffd6d6 }
+
+/* Header logo position on register page */
+.register-right .top-logo { position: absolute; right: 48px; top: 28px }
+.register-wrapper { position: relative }
+

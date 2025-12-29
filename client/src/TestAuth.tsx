@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 type Tokens = {
   accessToken?: string;
@@ -7,11 +7,13 @@ type Tokens = {
   refreshExpiresIn?: string;
 };
 
+type Result = { status?: number; body?: unknown; error?: string } | null
+
 export default function TestAuth() {
   const [email, setEmail] = useState('test@example.com');
   const [password, setPassword] = useState('pass123');
   const [fullName, setFullName] = useState('Test User');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Result>(null);
   const [tokens, setTokens] = useState<Tokens>({});
 
   async function register() {
