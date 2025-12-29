@@ -1,16 +1,15 @@
 import { lazy } from 'react'
-import { redirect } from 'react-router-dom'
-import { authFetch } from './lib/authFetch'
+import { authFetch } from './lib/authFetch.js'
 import type { LazyExoticComponent, ComponentType } from 'react'
 
 type ImportFn = () => Promise<{ default: ComponentType<unknown> }>
 
-const importHome: ImportFn = () => import('./TestAuth')          // sau này thay bằng Dashboard thật
-const importRegister: ImportFn = () => import('./pages/Register')
-const importLogin: ImportFn = () => import('./pages/Login')
-const importProfile: ImportFn = () => import('./pages/Profile')
-const importForbidden: ImportFn = () => import('./pages/Forbidden')
-const importNotFound: ImportFn = () => import('./pages/NotFound')
+const importHome: ImportFn = () => import('./TestAuth.js')          
+const importRegister: ImportFn = () => import('./pages/Register.js')
+const importLogin: ImportFn = () => import('./pages/Login.js')
+const importProfile: ImportFn = () => import('./pages/Profile.js')
+const importForbidden: ImportFn = () => import('./pages/Forbidden.js')
+const importNotFound: ImportFn = () => import('./pages/NotFound.js')
 
 const Home = lazy(importHome)
 const Register = lazy(importRegister)
@@ -64,16 +63,19 @@ export const appRoutes: AppRoute[] = [
     loader: async () => {
       const res = await authFetch('/api/users/me')
       if (!res.ok) {
-        if (res.status === 401) throw redirect('/login')
-        if (res.status === 403) throw redirect('/forbidden')
+        if (res.status === 401) {
+          throw new Response('', { status: 401 })  
+        }
+        if (res.status === 403) {
+          throw new Response('', { status: 403 })  
+        }
         throw new Response(await res.text(), { status: res.status })
       }
       const user = await res.json()
 
-      // Optional: frontend double-check role
       const allowedRoles = ['author', 'reviewer', 'chair', 'admin']
       if (!allowedRoles.includes(user.role)) {
-        throw redirect('/forbidden')
+        throw new Response('', { status: 403 })  
       }
 
       return user
@@ -103,7 +105,6 @@ export const ROUTES = {
   FORBIDDEN: '/forbidden',
 } as const
 
-// Prefetch helpers
 export function prefetchRouteByKey(key: string) {
   const route = appRoutes.find((r) => r.key === key)
   if (!route) throw new Error(`Route with key "${key}" not found`)
