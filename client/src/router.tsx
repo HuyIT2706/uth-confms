@@ -9,6 +9,11 @@ import Profile from './pages/Profile'
 import Forbidden from './pages/Forbidden'
 import NotFound from './pages/NotFound'
 import ErrorPage from './pages/ErrorPage'
+import PCManage from './pages/PCManage'
+import DecisionNotice from './pages/DecisionNotice'
+import CameraReady from './pages/CameraReady'
+import CreateCFP from './pages/CreateCFP'
+
 
 const router = createBrowserRouter([
   {
@@ -22,6 +27,10 @@ const router = createBrowserRouter([
       { path: 'profile', element: <Profile /> },
       { path: 'forbidden', element: <Forbidden /> },
       { path: '*', element: <NotFound /> },
+      { path: 'create-cfp', element: <CreateCFP /> },
+      { path: 'pc-manage', element: <PCManage /> },
+      { path: 'camera-ready', element: <CameraReady /> },
+      { path: 'decision-notice', element: <DecisionNotice /> },
     ],
   },
 ])
