@@ -1,7 +1,5 @@
-import { useState, useEffect  } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-
-
 import {
     Menu as MenuIcon,
     Close as CloseIcon,
@@ -15,11 +13,6 @@ const Header = () => {
     const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-    // ⭐ ADD: role state 
-    const [role, setRole] = useState(
-        localStorage.getItem('testingRole') || 'author'
-    );
 
     // Mock user data - replace with actual auth state later
     const isLoggedIn = true;
@@ -36,31 +29,6 @@ const Header = () => {
         // TODO: Implement logout logic
         navigate('/login');
     };
-
-    // ⭐ ADD: handle role change 
-    const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newRole = e.target.value;
-        setRole(newRole);
-        localStorage.setItem('testingRole', newRole);
-
-        switch (newRole) {
-    case 'reviewer':
-      navigate('/reviewer', { replace: true });
-      break;
-
-    case 'chair':
-      navigate('/chair/conferences', { replace: true });
-      break;
-
-    case 'author':
-      navigate('/', { replace: true });
-      break;
-
-    case 'admin':
-      navigate('/', { replace: true });
-      break;
-  }
-};
 
     return (
         <header className="bg-white shadow-md sticky top-0 z-50">
@@ -89,18 +57,6 @@ const Header = () => {
                     <div className="hidden md:flex items-center space-x-4">
                         {isLoggedIn ? (
                             <>
-                                {/* ⭐ ADD: Role Switcher */}
-                                <select
-                                    value={role}
-                                    onChange={handleRoleChange}
-                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                >
-                                    <option value="author">Author</option>
-                                    <option value="chair">Chair</option>
-                                    <option value="reviewer">Reviewer</option>
-                                    <option value="admin">Admin</option>
-                                </select>
-
                                 {/* Notifications */}
                                 <button className="p-2 text-gray-600 hover:text-[#008689] hover:bg-gray-100 rounded-full transition-colors duration-200 relative">
                                     <Notifications className="w-6 h-6" />
