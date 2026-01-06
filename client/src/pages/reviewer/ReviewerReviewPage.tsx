@@ -38,7 +38,7 @@ const ReviewDetailPage = () => {
 
         {/* Back */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/reviewer')}
           className="flex items-center gap-2 text-[#008689] mb-6 hover:underline"
         >
           <ArrowBack fontSize="small" />
@@ -145,7 +145,7 @@ const ReviewDetailPage = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-4 pt-6 border-t">
+            <div className="flex justify-end gap-4 pt-6 ">
               <button
                 onClick={() => navigate(-1)}
                 className="px-6 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"

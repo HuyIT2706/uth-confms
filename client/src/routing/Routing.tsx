@@ -29,8 +29,7 @@ import AllConferencesPage from '../pages/admin/AllConferencesPage.tsx';
 import PlatformSettingsPage from '../pages/admin/PlatformSettingsPage.tsx';
 import AuditLogsPage from '../pages/admin/AuditLogsPage.tsx';
 import ReviewerDashboard from '../pages/reviewer/ReviewerDashboard.tsx';
-import ReviewerReviewPage from '../pages/reviewer/ReviewerReviewPage';
-import ReviewerListPage from '../pages/reviewer/ReviewerListPage.tsx';
+import ReviewerReviewPage from '../pages/reviewer/ReviewerReviewPage'; 
 
 const appRouter = createBrowserRouter([
   {
@@ -159,7 +158,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: 'reviewer/review/:id',
-        element: <ReviewerReviewPage />,
+        element: <ReviewerReviewPage />, 
       }
     ],
   },

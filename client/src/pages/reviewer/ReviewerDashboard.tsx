@@ -170,7 +170,7 @@ const ReviewerDashboard = () => {
 
               <div className="px-6 py-4 border-t bg-gray-50">
                 <Link
-                  to={`review/${item.id}`}
+                  to={`/reviewer/review/${item.id}`}
                   className={`block text-center px-4 py-2 rounded-lg font-medium
                     ${
                       item.status === 'Reviewed'
