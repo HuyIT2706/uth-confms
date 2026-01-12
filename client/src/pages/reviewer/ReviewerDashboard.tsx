@@ -23,7 +23,11 @@ const ReviewerDashboard = () => {
   const [statusFilter, setStatusFilter] =
     useState<'all' | 'Pending' | 'Reviewed'>('all');
 
-  // MOCK DATA – TẠM THỜI
+  // 👉 NEW: filter theo chủ đề
+  const [topicFilter, setTopicFilter] =
+    useState<'ALL' | 'AI' | 'Big Data' | 'Blockchain'>('ALL');
+
+  // MOCK DATA
   const assignments: ReviewerAssignment[] = [
     {
       id: 1,
@@ -48,6 +52,7 @@ const ReviewerDashboard = () => {
     },
   ];
 
+  // 👉 UPDATED FILTER
   const filteredAssignments = assignments.filter((a) => {
     const matchesSearch =
       a.paperTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,7 +61,10 @@ const ReviewerDashboard = () => {
     const matchesStatus =
       statusFilter === 'all' || a.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    const matchesTopic =
+      topicFilter === 'ALL' || a.topic === topicFilter;
+
+    return matchesSearch && matchesStatus && matchesTopic;
   });
 
   const total = assignments.length;
@@ -70,13 +78,6 @@ const ReviewerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e6f7f6] to-[#dff5f3] relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#008689] rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-24 w-96 h-96 bg-[#00b3a4] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#7fe3da] rounded-full blur-3xl" />
-      </div>
-
       <div className="relative max-w-7xl mx-auto py-10 px-4">
         {/* HEADER */}
         <div className="bg-white rounded-xl shadow p-6 mb-8">
@@ -113,6 +114,24 @@ const ReviewerDashboard = () => {
           </div>
         </div>
 
+        {/* 👉 TOPIC TABS (NEW) */}
+        <div className="flex gap-3 mb-6">
+          {['ALL', 'AI', 'Big Data', 'Blockchain'].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTopicFilter(t as any)}
+              className={`px-4 py-2 rounded-full text-sm font-medium
+                ${
+                  topicFilter === t
+                    ? 'bg-[#008689] text-white'
+                    : 'bg-white border text-gray-600 hover:bg-gray-100'
+                }`}
+            >
+              {t === 'ALL' ? 'Tất cả chủ đề' : t}
+            </button>
+          ))}
+        </div>
+
         {/* SEARCH */}
         <div className="bg-white rounded-xl shadow p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2 relative">
@@ -139,10 +158,7 @@ const ReviewerDashboard = () => {
         {/* LIST */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAssignments.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-xl shadow  relative"
-            >
+            <div key={item.id} className="bg-white rounded-xl shadow relative">
               <span
                 className={`absolute top-4 right-4 text-xs px-3 py-1 rounded-full ${getStatusStyle(
                   item.status
@@ -169,26 +185,26 @@ const ReviewerDashboard = () => {
               </div>
 
               <div className="px-6 py-4 border-t bg-gray-50">
-                <Link
-                  to={`/reviewer/review/${item.id}`}
-                  className={`block text-center px-4 py-2 rounded-lg font-medium
-                    ${
-                      item.status === 'Reviewed'
-                        ? 'bg-gray-300 text-gray-600 pointer-events-none'
-                        : 'bg-[#008689] text-white hover:bg-[#006666]'
-                    }`}
-                >
-                  <AssignmentTurnedIn className="w-4 h-4 inline mr-2" />
-                  {item.status === 'Reviewed'
-                    ? 'Đã đánh giá'
-                    : 'Đánh giá bài'}
-                </Link>
+                {item.status === 'Reviewed' ? (
+                  <Link
+                    to={`/reviewer/review/${item.id}`}
+                    className="block text-center px-4 py-2 rounded-lg bg-gray-300 text-gray-700"
+                  >
+                    Xem lại đánh giá
+                  </Link>
+                ) : (
+                  <Link
+                    to={`/reviewer/review/${item.id}`}
+                    className="block text-center px-4 py-2 rounded-lg bg-[#008689] text-white hover:bg-[#006666]"
+                  >
+                    Đánh giá bài
+                  </Link>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        {/* 🚨 QUAN TRỌNG NHẤT */}
         <Outlet />
       </div>
     </div>
