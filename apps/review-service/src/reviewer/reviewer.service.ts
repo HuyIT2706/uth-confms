@@ -1,334 +1,214 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
-import { Assignment } from './entities/assignment.entity';
-import { Review } from './entities/review.entity';
-import { ReviewEditHistory } from './entities/review-edit-history.entity';
-import { DiscussionMessage } from './entities/discussion.entity';
+import { Invitation } from './entities/invitation.entity';
+import type { IncomingInvitationDto } from './dto/incoming-invitation.dto';
 
 @Injectable()
 export class ReviewerService {
+  private readonly logger = new Logger(ReviewerService.name);
+
   constructor(
-    @InjectRepository(Assignment)
-    private readonly assignmentRepo: Repository<Assignment>,
-    @InjectRepository(Review)
-    private readonly reviewRepo: Repository<Review>,
-    @InjectRepository(ReviewEditHistory)
-    private readonly historyRepo: Repository<ReviewEditHistory>,
-    @InjectRepository(DiscussionMessage)
-    private readonly discussionRepo: Repository<DiscussionMessage>,
-    private readonly httpService: HttpService,
-    private readonly config: ConfigService,
+    @InjectRepository(Invitation)
+    private readonly repo: Repository<Invitation>,
   ) {}
 
-  async listAssignments(reviewerId: number) {
-    return this.assignmentRepo.find({ where: { reviewerId: reviewerId } });
-  }
-
-  async acceptAssignment(id: number, reviewerId: number) {
-    const a = await this.assignmentRepo.findOne({ where: { id } });
-    if (!a) throw new NotFoundException('Assignment not found');
-    if (a.reviewerId !== reviewerId) throw new ForbiddenException();
-    if (a.status === 'accepted') {
-      throw new BadRequestException('Assignment already accepted');
-    }
-    if (a.status === 'rejected') {
-      throw new BadRequestException('Cannot accept a rejected assignment');
-    }
-    // Kiểm tra acceptDeadline (nếu có)
-    const now = new Date();
-    const accDeadline = (a as any).acceptDeadline || a.deadline;
-    if (accDeadline && now > new Date(accDeadline)) {
-      throw new BadRequestException('Đã quá hạn chấp nhận phân công');
-    }
-
-    a.status = 'accepted';
-    return this.assignmentRepo.save(a);
-  }
-
-  async rejectAssignment(id: number, reviewerId: number) {
-    const a = await this.assignmentRepo.findOne({ where: { id } });
-    if (!a) throw new NotFoundException('Assignment not found');
-    if (a.reviewerId !== reviewerId) throw new ForbiddenException();
-    if (a.status === 'rejected') {
-      throw new BadRequestException('Assignment already rejected');
-    }
-    // Kiểm tra acceptDeadline (nếu có)
-    const now = new Date();
-    const accDeadline = (a as any).acceptDeadline || a.deadline;
-    if (accDeadline && now > new Date(accDeadline)) {
-      throw new BadRequestException('Đã quá hạn chấp nhận phân công');
-    }
-
-    a.status = 'rejected';
-    return this.assignmentRepo.save(a);
-  }
-
-  /**
-   * Kiểm tra assignment có được accept và còn trong deadline không
-   */
-  private async validateAssignmentForReview(assignmentId: number, reviewerId: number): Promise<Assignment> {
-    const assignment = await this.assignmentRepo.findOne({ where: { id: assignmentId } });
-    if (!assignment) throw new NotFoundException('Assignment not found');
-    if (assignment.reviewerId !== reviewerId) throw new ForbiddenException();
-    // Cho phép trạng thái 'accepted' hoặc 'completed' (đã submit final) làm việc
-    if (assignment.status !== 'accepted' && assignment.status !== 'completed') {
-      throw new ForbiddenException('Chỉ có thể đánh giá bài báo đã được chấp nhận (accepted)');
-    }
-    // Kiểm tra reviewDeadline (không cho phép đánh giá nếu đã quá hạn)
-    const rd = (assignment as any).reviewDeadline || assignment.deadline;
-    if (rd && new Date() > new Date(rd)) {
-      throw new BadRequestException('Đã quá hạn deadline đánh giá, không thể đánh giá hoặc chỉnh sửa');
-    }
-    return assignment;
-  }
-
-  async getReviewByAssignment(assignmentId: number, reviewerId: number) {
-    const assignment = await this.assignmentRepo.findOne({ where: { id: assignmentId } });
-    if (!assignment) throw new NotFoundException('Assignment not found');
-    if (assignment.reviewerId !== reviewerId) throw new ForbiddenException();
+  async createInvitation(payload: Partial<IncomingInvitationDto>): Promise<Invitation> {
+    this.logger.log(`Creating invitation for reviewer ${payload.reviewerId}, conference ${payload.conferenceId}, externalId: ${payload.externalInvitationId}`);
     
-    const review = await this.reviewRepo.findOne({ where: { assignmentId, reviewerId } });
-    if (!review) return null;
-    
-    // Lấy lịch sử chỉnh sửa
-    const histories = await this.historyRepo.find({ where: { reviewId: review.id } });
-    
-    return {
-      ...review,
-      histories,
-    };
-  }
-
-  async createReview(assignmentId: number, payload: Partial<Review>, reviewerId: number) {
-    // Kiểm tra assignment đã được accept/allowed và còn deadline
-    const assignment = await this.validateAssignmentForReview(assignmentId, reviewerId);
-    
-    // Kiểm tra xem đã có review chưa
-    const existingReview = await this.reviewRepo.findOne({ where: { assignmentId, reviewerId } });
-    if (existingReview) {
-      throw new BadRequestException('Review already exists. Use update endpoint to modify.');
-    }
-    
-    // Do not allow setting final via create/update here. Final submission must use submitFinal endpoint.
-    const r = this.reviewRepo.create({ ...payload, assignmentId, reviewerId, isFinal: false });
-    const saved = await this.reviewRepo.save(r);
-    return saved;
-  }
-
-  async updateReview(assignmentId: number, payload: Partial<Review>, reviewerId: number) {
-    // Kiểm tra assignment đã được accept và còn deadline
-    const assignment = await this.validateAssignmentForReview(assignmentId, reviewerId);
-    
-    const review = await this.reviewRepo.findOne({ where: { assignmentId, reviewerId } });
-    if (!review) throw new NotFoundException('Review not found');
-
-    // If review was already submitted as final, disallow direct edits. Reviewer must withdraw final first.
-    if (review.isFinal) {
-      throw new BadRequestException('Cannot edit final review; withdraw final-review first');
-    }
-    
-    // Lưu lịch sử chỉnh sửa (lưu các cột cũ riêng biệt để dễ hiển thị)
-    await this.historyRepo.save({
-      reviewId: review.id,
-      reviewerId,
-      oldScore: review.score ?? null,
-      oldPublicComment: review.publicComment ?? null,
-      oldPrivateComment: review.privateComment ?? null,
-      oldIsFinal: review.isFinal ?? null,
-      oldAssignmentId: review.assignmentId ?? null,
-    });
-    
-    Object.assign(review, payload);
-    const saved = await this.reviewRepo.save(review);
-
-    // Do not allow setting isFinal via update; use submitFinal endpoint instead.
-    return saved;
-  }
-
-  /**
-   * Submit final review: require existing review with score and publicComment,
-   * mark review.isFinal = true and assignment.status = 'completed' for that reviewer.
-   */
-  async submitFinal(assignmentId: number, reviewerId: number) {
-    const assignment = await this.assignmentRepo.findOne({ where: { id: assignmentId } });
-    if (!assignment) throw new NotFoundException('Assignment not found');
-    if (assignment.reviewerId !== reviewerId) throw new ForbiddenException();
-    if (assignment.status === 'rejected') throw new BadRequestException('Cannot submit final for rejected assignment');
-    // idempotent: if already completed, ensure review.isFinal = true and return success
-    if (assignment.status === 'completed') {
-      const existing = await this.reviewRepo.findOne({ where: { assignmentId, reviewerId } });
-      if (existing && !existing.isFinal) {
-        existing.isFinal = true;
-        await this.reviewRepo.save(existing);
+    // Check if invitation with same externalInvitationId already exists
+    let inv: Invitation | null = null;
+    if (payload.externalInvitationId) {
+      inv = await this.repo.findOne({ 
+        where: { externalInvitationId: payload.externalInvitationId } 
+      });
+      if (inv) {
+        this.logger.log(`Found existing invitation with externalInvitationId ${payload.externalInvitationId}, updating...`);
       }
-      return { success: true, review: existing, assignment };
     }
 
-    // Ensure within review deadline
-    const rd = (assignment as any).reviewDeadline || assignment.deadline;
-    if (rd && new Date() > new Date(rd)) {
-      throw new BadRequestException('Đã quá hạn deadline đánh giá, không thể nộp final');
-    }
-
-    const review = await this.reviewRepo.findOne({ where: { assignmentId, reviewerId } });
-    if (!review) throw new BadRequestException('Không tìm thấy review để submit final');
-    if (review.score == null || !review.publicComment) {
-      throw new BadRequestException('Để nộp final cần có `score` và `publicComment`');
-    }
-
-    review.isFinal = true;
-    await this.reviewRepo.save(review);
-
-    assignment.status = 'completed';
-    await this.assignmentRepo.save(assignment);
-
-    return { success: true, review, assignment };
-  }
-
-  /**
-   * Withdraw a previously submitted final review so reviewer can edit again.
-   * Sets review.isFinal = false and resets assignment.status back to 'accepted' if it was 'completed'.
-   */
-  async withdrawFinal(assignmentId: number, reviewerId: number) {
-    const assignment = await this.assignmentRepo.findOne({ where: { id: assignmentId } });
-    if (!assignment) throw new NotFoundException('Assignment not found');
-    if (assignment.reviewerId !== reviewerId) throw new ForbiddenException();
-
-    const review = await this.reviewRepo.findOne({ where: { assignmentId, reviewerId } });
-    if (!review) throw new NotFoundException('Review not found');
-    if (!review.isFinal) {
-      throw new BadRequestException('Review is not final');
-    }
-
-    // Allow withdrawal (no deadline check here). Set isFinal false and reset assignment status.
-    review.isFinal = false;
-    await this.reviewRepo.save(review);
-
-    if (assignment.status === 'completed') {
-      assignment.status = 'accepted';
-      await this.assignmentRepo.save(assignment);
-    }
-
-    return { success: true, review, assignment };
-  }
-
-  async getReviewHistory(reviewId: string, reviewerId: number) {
-    const review = await this.reviewRepo.findOne({ where: { id: reviewId } });
-    if (!review) throw new NotFoundException('Review not found');
-    if (review.reviewerId !== reviewerId) throw new ForbiddenException();
-    
-    return this.historyRepo.find({ where: { reviewId } });
-  }
-
-  /**
-   * Kiểm tra reviewer có được phép tham gia discussion không
-   * Chỉ reviewers đã accept cùng submissionId mới được phép
-   */
-  private async validateDiscussionAccess(submissionId: string, reviewerId: number): Promise<void> {
-    const assignment = await this.assignmentRepo.findOne({ where: { submissionId, reviewerId } });
-
-    if (!assignment || (assignment.status !== 'accepted' && assignment.status !== 'completed')) {
-      throw new ForbiddenException('Chỉ có thể tham gia thảo luận cho bài báo đã được chấp nhận đánh giá');
-    }
-  }
-
-  async listDiscussion(submissionId: string, requesterId: number) {
-    // Kiểm tra reviewer có quyền xem discussion không
-    await this.validateDiscussionAccess(submissionId, requesterId);
-    
-    return this.discussionRepo.find({ 
-      where: { submissionId }, 
-      order: { createdAt: 'ASC' } 
-    });
-  }
-
-  async postDiscussion(submissionId: string, content: string, senderId: number) {
-    // Kiểm tra reviewer có quyền tham gia discussion không
-    await this.validateDiscussionAccess(submissionId, senderId);
-    
-    const m = this.discussionRepo.create({ submissionId, content, senderId });
-    return this.discussionRepo.save(m);
-  }
-
-  /**
-   * Create or update an assignment received from conference-service (internal)
-   */
-  async createAssignmentFromExternal(dto: any) {
-    if (!dto || !dto.submissionId || !dto.reviewerId) {
-      throw new BadRequestException('Missing submissionId or reviewerId');
-    }
-
-    let assignment = await this.assignmentRepo.findOne({
-      where: { submissionId: dto.submissionId, reviewerId: dto.reviewerId },
-    });
-
-    const payload: Partial<Assignment> = {
-      submissionId: dto.submissionId,
-      reviewerId: Number(dto.reviewerId),
-      conferenceId: dto.conferenceId,
-      assignedBy: dto.assignedBy,
-      status: 'pending',
-      assignedAt: new Date(),
-    };
-
-    if (dto.deadline) payload.deadline = new Date(dto.deadline);
-    if (dto.acceptDeadline) payload.acceptDeadline = new Date(dto.acceptDeadline);
-    if (dto.reviewDeadline) payload.reviewDeadline = new Date(dto.reviewDeadline);
-
-    if (!assignment) {
-      assignment = this.assignmentRepo.create(payload as Assignment);
+    if (inv) {
+      // Update existing invitation
+      inv.conferenceId = payload.conferenceId!;
+      inv.conferenceName = payload.conferenceName;
+      inv.acronym = payload.acronym;
+      inv.conferenceDescription = payload.conferenceDescription;
+      inv.startDate = payload.startDate;
+      inv.endDate = payload.endDate;
+      inv.topics = payload.topics;
+      inv.deadlines = payload.deadlines;
+      inv.chairId = payload.chairId;
+      inv.reviewerId = payload.reviewerId!;
+      inv.message = payload.message;
+      inv.raw = payload.raw ?? null;
+      // Reset to pending if it was previously accepted/rejected (re-invitation)
+      if (inv.status !== 'pending') {
+        inv.status = 'pending';
+      }
     } else {
-      Object.assign(assignment, payload);
+      // Create new invitation
+      inv = this.repo.create({
+        externalInvitationId: payload.externalInvitationId,
+        conferenceId: payload.conferenceId!,
+        conferenceName: payload.conferenceName,
+        acronym: payload.acronym,
+        conferenceDescription: payload.conferenceDescription,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        topics: payload.topics,
+        deadlines: payload.deadlines,
+        chairId: payload.chairId,
+        reviewerId: payload.reviewerId!,
+        message: payload.message,
+        raw: payload.raw ?? null,
+        status: 'pending',
+      } as Partial<Invitation>);
     }
-
-    return this.assignmentRepo.save(assignment);
+    
+    const saved = await this.repo.save(inv);
+    this.notifyExternal(saved).catch((e) => this.logger.warn(`Notify failed: ${e?.message || e}`));
+    return saved;
   }
 
-  /**
-   * Lấy thông tin bài báo từ submission-service
-   * Tạm thời trả về 404 nếu submission-service chưa có endpoint
-   */
-  async getPaper(assignmentId: number, reviewerId: number) {
-    const assignment = await this.assignmentRepo.findOne({ where: { id: assignmentId } });
-    if (!assignment) throw new NotFoundException('Assignment not found');
-    if (assignment.reviewerId !== reviewerId) throw new ForbiddenException();
+  async findByReviewer(reviewerId: number): Promise<Invitation[]> {
+    return this.repo.find({ where: { reviewerId }, order: { createdAt: 'DESC' } });
+  }
+
+  async updateStatus(id: string, status: Invitation['status']): Promise<Invitation | null> {
+    const inv = await this.repo.findOne({ where: [{ id }, { externalInvitationId: id }] });
+    if (!inv) return null;
+    inv.status = status;
+    const saved = await this.repo.save(inv);
+    this.notifyExternal(saved).catch((e) => this.logger.warn(`Notify failed: ${e?.message || e}`));
+    return saved;
+  }
+
+  async updateTopics(id: string, topics: string[], reviewerId: number): Promise<Invitation | null> {
+    const inv = await this.repo.findOne({ where: [{ id }, { externalInvitationId: id }] });
+    if (!inv) return null;
     
-    // Chỉ cho phép xem paper nếu đã accept hoặc đã completed (submit final)
-    if (assignment.status !== 'accepted' && assignment.status !== 'completed') {
-      throw new ForbiddenException('Chỉ có thể xem bài báo sau khi đã chấp nhận đánh giá');
+    // Kiểm tra reviewer có quyền update không
+    if (inv.reviewerId !== reviewerId) {
+      throw new BadRequestException('You can only update your own invitation topics');
     }
+
+    // Validate topics
+    if (!Array.isArray(topics)) {
+      throw new BadRequestException('Topics must be an array');
+    }
+
+    // Clean và validate topics
+    const cleanTopics = [...new Set(topics.map(t => t.trim()).filter(t => t.length > 0))];
     
-    // Call submission-service internal endpoint to get the public file URL, then proxy
-    const submissionBase =
-      this.config.get<string>('SUBMISSION_SERVICE_URL') ||
-      this.config.get<string>('SUBMISSION_SERVICE') ||
-      'http://submission-service:3003';
+    inv.reviewerTopics = cleanTopics;
+    const saved = await this.repo.save(inv);
+    
+    // Notify conference-service về topics update
+    this.notifyTopicsUpdate(saved).catch((e) => this.logger.warn(`Notify topics update failed: ${e?.message || e}`));
+    
+    return saved;
+  }
 
-    // assignment.submissionId may be like 'sub-02' -> extract numeric id
-    const m = String(assignment.submissionId).match(/(\d+)$/);
-    if (!m) throw new NotFoundException('Không thể xác định id của submission');
-    const subId = parseInt(m[1], 10);
+  async deleteByExternalId(externalInvitationId: string): Promise<boolean> {
+    const inv = await this.repo.findOne({ where: { externalInvitationId } });
+    if (!inv) return false;
+    await this.repo.remove(inv);
+    this.logger.log(`Deleted invitation with externalInvitationId: ${externalInvitationId}`);
+    return true;
+  }
 
-    const infoUrl = `${submissionBase}/api/internal/submissions/${subId}/file`;
+  private async notifyExternal(inv: Invitation) {
+    // Chỉ notify khi có externalInvitationId (invitation từ conference-service)
+    if (!inv.externalInvitationId) {
+      this.logger.debug(`Skipping notifyExternal - no externalInvitationId for invitation ${inv.id}`);
+      return;
+    }
+
+    // Sử dụng CONFERENCE_SERVICE_URL từ env, mặc định là http://conference-service:3002/api
+    // Lưu ý: URL đã có /api prefix trong docker-compose
+    const baseUrl = process.env.CONFERENCE_SERVICE_URL || process.env.CONFERENCE_SERVICE_NOTIFY_URL || 'http://conference-service:3002/api';
+    const cleanUrl = baseUrl.replace(/\/$/, '');
+    
+    // Gọi endpoint internal của conference-service để cập nhật status
+    let notifyUrl: string;
+    let method: string;
+    
+    if (inv.status === 'accepted') {
+      notifyUrl = `${cleanUrl}/internal/invitations/${inv.externalInvitationId}/accept`;
+      method = 'PATCH';
+    } else if (inv.status === 'rejected') {
+      notifyUrl = `${cleanUrl}/internal/invitations/${inv.externalInvitationId}/decline`;
+      method = 'PATCH';
+    } else {
+      // pending hoặc các status khác không cần notify
+      this.logger.debug(`Skipping notifyExternal - status ${inv.status} does not require notification`);
+      return;
+    }
+
+    this.logger.log(`Notifying conference-service about invitation ${inv.externalInvitationId} status change to ${inv.status} at ${notifyUrl}`);
+    
     try {
-      const infoResp = await this.httpService.axiosRef.get(infoUrl);
-      const fileUrl = infoResp?.data?.data?.url;
-      const filename = infoResp?.data?.data?.filename || `${assignment.submissionId}.pdf`;
-      if (!fileUrl) throw new Error('No file url');
+      const body: any = { userId: inv.reviewerId };
+      
+      // Nếu đang accept và có reviewerTopics, gửi kèm topics
+      if (inv.status === 'accepted' && inv.reviewerTopics && inv.reviewerTopics.length > 0) {
+        body.topics = inv.reviewerTopics;
+      }
 
-      // Fetch the public URL and proxy bytes
-      const resp = await this.httpService.axiosRef.get(fileUrl, { responseType: 'arraybuffer' });
-      const contentType = resp.headers['content-type'] || 'application/octet-stream';
-      return {
-        filename,
-        contentType,
-        data: Buffer.from(resp.data).toString('base64'),
-      };
+      const response = await fetch(notifyUrl, {
+        method,
+        headers: { 
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.warn(`Failed to notify conference-service: ${response.status} ${response.statusText} - ${errorText}`);
+      } else {
+        const result = await response.json().catch(() => ({}));
+        this.logger.log(`Successfully notified conference-service about invitation ${inv.externalInvitationId}: ${JSON.stringify(result)}`);
+      }
     } catch (err: any) {
-      throw new NotFoundException('Không thể lấy file từ submission-service');
+      this.logger.error(`Exception notifying conference-service: ${err.message}`, err.stack);
+    }
+  }
+
+  private async notifyTopicsUpdate(inv: Invitation) {
+    // Chỉ notify khi có externalInvitationId và invitation đã được accepted
+    if (!inv.externalInvitationId || inv.status !== 'accepted') {
+      this.logger.debug(`Skipping notifyTopicsUpdate - no externalInvitationId or status is not accepted`);
+      return;
+    }
+
+    const baseUrl = process.env.CONFERENCE_SERVICE_URL || process.env.CONFERENCE_SERVICE_NOTIFY_URL || 'http://conference-service:3002/api';
+    const cleanUrl = baseUrl.replace(/\/$/, '');
+    const notifyUrl = `${cleanUrl}/internal/invitations/${inv.externalInvitationId}/topics`;
+
+    this.logger.log(`Notifying conference-service about topics update for invitation ${inv.externalInvitationId} at ${notifyUrl}`);
+    
+    try {
+      const response = await fetch(notifyUrl, {
+        method: 'PATCH',
+        headers: { 
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          userId: inv.reviewerId,
+          topics: inv.reviewerTopics || [],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.warn(`Failed to notify conference-service about topics update: ${response.status} ${response.statusText} - ${errorText}`);
+      } else {
+        const result = await response.json().catch(() => ({}));
+        this.logger.log(`Successfully notified conference-service about topics update for invitation ${inv.externalInvitationId}: ${JSON.stringify(result)}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Exception notifying conference-service about topics update: ${err.message}`, err.stack);
     }
   }
 }

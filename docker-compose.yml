@@ -56,9 +56,11 @@ services:
       - DB_PASSWORD=admin123
       - DB_DATABASE=db_conference
       - JWT_ACCESS_SECRET=jZE6YIUoP_j7SOTLPWgS8kSfX5g4dlOmPMWJVNLMOyg-SMoqXiMRkR0ocJQEGr9HVUjonNIlZNwHzduFfOCJOQ
+      - REVIEW_SERVICE_URL=http://review-service:3000/api
     depends_on:
       - postgres
       - identity-service
+      - review-service
     networks:
       - uth-net
     restart: unless-stopped
@@ -99,9 +101,10 @@ services:
       - DB_USERNAME=admin
       - DB_PASSWORD=admin123
       - DB_DATABASE=db_review
-      - JWT_SECRET=your_jwt_secret_here
+      - DB_REVIEW_SYNC=true
+      - JWT_ACCESS_SECRET=jZE6YIUoP_j7SOTLPWgS8kSfX5g4dlOmPMWJVNLMOyg-SMoqXiMRkR0ocJQEGr9HVUjonNIlZNwHzduFfOCJOQ
       - IDENTITY_SERVICE_URL=http://identity-service:3001
-      - CONFERENCE_SERVICE_URL=http://conference-service:3002
+      - CONFERENCE_SERVICE_URL=http://conference-service:3002/api
       - SUBMISSION_SERVICE_URL=http://submission-service:3003
     depends_on:
       - postgres

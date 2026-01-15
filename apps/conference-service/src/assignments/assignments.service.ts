@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Assignment, AssignmentStatus } from './entities/assignment.entity';
 import { AssignReviewersDto } from './dto/assign-reviewers.dto';
 import { ConferencesService } from '../conferences/conferences.service';
+import { InvitationsService } from '../invitations/invitations.service';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { SubmissionsClient } from '../integrations/submissions.client';
@@ -26,6 +27,7 @@ export class AssignmentsService {
     private auditService: AuditService,
     private submissionsClient: SubmissionsClient,
     private httpService: HttpService,
+    private invitationsService: InvitationsService,
   ) {}
 
   /**
@@ -60,19 +62,24 @@ export class AssignmentsService {
    * Lấy danh sách reviewer từ Identity Service (hoặc fallback mock)
    */
   private async getReviewers(conferenceId: string): Promise<{ id: number; topics: string[] }[]> {
+    // Prefer reviewers who have accepted invitation for this conference (and their declared topics)
     try {
-      // Tương lai: có thể thêm query param ?conferenceId=${conferenceId}
-      // để chỉ lấy reviewer đã đăng ký tham gia hội nghị
+      const accepted = await this.invitationsService.getAcceptedReviewers(conferenceId, /* chairId not needed */ null as any);
+      if (Array.isArray(accepted) && accepted.length > 0) {
+        return accepted.map((a: any) => ({ id: a.userId, topics: a.topics || [] }));
+      }
+    } catch (err) {
+      // Ignore and fallback to identity service
+      this.auditService?.log?.('WARN', 0, 'AssignmentsService', `Failed to fetch accepted reviewers: ${err.message}`);
+    }
+
+    // Fallback: query identity service for all reviewers and their profile topics
+    try {
       const url = `${process.env.IDENTITY_SERVICE_URL || 'http://identity-service:3001'}/api/users?role=REVIEWER`;
-
       const { data } = await firstValueFrom(this.httpService.get(url));
-
-      return data.map((user: any) => ({
-        id: user.id,
-        topics: user.topics || [],
-      }));
+      return data.map((user: any) => ({ id: user.id, topics: user.topics || [] }));
     } catch (error) {
-      console.error('Error fetching reviewers from Identity Service:', error.message);
+      console.error('Error fetching reviewers from Identity Service:', error.message || error);
       // Fallback mock data cho môi trường dev/test
       return [
         { id: 2, topics: ['AI', 'Machine Learning', 'Deep Learning'] },
@@ -194,6 +201,15 @@ export class AssignmentsService {
     const conferenceTopics = conference.topics?.map(t => t.toLowerCase().trim()) || [];
     const reviewers = await this.getReviewers(dto.conferenceId);
 
+    const requestedTopics = dto.topic
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    if (requestedTopics.length === 0) {
+      throw new BadRequestException('topic is required');
+    }
+
     const assignments: Assignment[] = [];
 
     for (const reviewerId of dto.reviewerIds) {
@@ -202,41 +218,81 @@ export class AssignmentsService {
         throw new BadRequestException(`Invalid reviewer ID: ${reviewerId}`);
       }
 
-      const revTopics = reviewer.topics.map(t => t.toLowerCase().trim());
+      const revTopics = (reviewer.topics || []).map(t => t.toLowerCase().trim());
+
+      // Ensure reviewer matches at least one conference topic (if conference has topics)
       const overlap = conferenceTopics.filter(ct => revTopics.includes(ct)).length;
-
       if (overlap === 0 && conferenceTopics.length > 0) {
-        throw new BadRequestException(
-          `Reviewer ${reviewerId} không match bất kỳ topic nào của hội nghị`,
-        );
+        throw new BadRequestException(`Reviewer ${reviewerId} không match bất kỳ topic nào của hội nghị`);
       }
 
-      const existing = await this.assignmentRepo.findOne({
-        where: {
-          topic: dto.topic,
+      // For each requested topic (can be comma-separated), create separate assignment
+      for (const t of requestedTopics) {
+        const topicNorm = t.toLowerCase().trim();
+
+        // If conference has topics, ensure requested topic exists in conference
+        if (conferenceTopics.length > 0 && !conferenceTopics.includes(topicNorm)) {
+          throw new BadRequestException(`Topic '${t}' không tồn tại trong hội nghị`);
+        }
+
+        // Optionally ensure reviewer has this topic in their declared topics
+        if (revTopics.length > 0 && !revTopics.includes(topicNorm)) {
+          throw new BadRequestException(`Reviewer ${reviewerId} không match topic '${t}'`);
+        }
+
+        const existing = await this.assignmentRepo.findOne({
+          where: {
+            topic: t,
+            reviewerId,
+            conferenceId: dto.conferenceId,
+          },
+        });
+
+        if (existing) {
+          throw new BadRequestException(`Reviewer ${reviewerId} đã được phân công cho topic '${t}'`);
+        }
+
+        const assignment = this.assignmentRepo.create({
+          topic: t,
           reviewerId,
-          conferenceId: dto.conferenceId,
-        },
-      });
+          conferenceId: conference.id,
+          status: AssignmentStatus.ASSIGNED,
+          similarityScore: 0,
+          suggestionReason: 'Manual assignment by chair',
+          hasCoi: false,
+          assignedAt: new Date(),
+        });
 
-      if (existing) {
-        throw new BadRequestException(
-          `Reviewer ${reviewerId} đã được phân công cho topic này`,
-        );
+        const saved = await this.assignmentRepo.save(assignment);
+        assignments.push(saved);
+
+        // Notify review-service about this assignment so reviewer receives it
+        try {
+          const reviewBase = process.env.REVIEW_SERVICE_URL || 'http://review-service:3004/api';
+          const notifyUrl = `${reviewBase}/internal/assignments`;
+          const payload = {
+            id: saved.id, // external authoritative id from conference-service
+            conferenceAssignmentId: saved.id,
+            submissionId: `topic:${saved.topic}`,
+            topic: saved.topic,
+            reviewerId: saved.reviewerId,
+            conferenceId: saved.conferenceId,
+            assignedBy: chairId,
+            assignedAt: saved.assignedAt,
+            status: saved.status,
+            similarityScore: saved.similarityScore,
+            suggestionReason: saved.suggestionReason,
+            hasCoi: saved.hasCoi,
+          };
+
+          // fire-and-forget, don't block chair action on notify failure
+          this.httpService.post(notifyUrl, payload).toPromise().catch(err => {
+            this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Failed to notify review-service: ${err.message}`);
+          });
+        } catch (err) {
+          this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Notify exception: ${err.message}`);
+        }
       }
-
-      const assignment = this.assignmentRepo.create({
-        topic: dto.topic,
-        reviewerId,
-        conferenceId: conference.id,
-        status: AssignmentStatus.ASSIGNED,
-        similarityScore: 0,
-        suggestionReason: 'Manual assignment by chair',
-        hasCoi: false,
-        assignedAt: new Date(),
-      });
-
-      assignments.push(await this.assignmentRepo.save(assignment));
     }
 
     await this.auditService.log('ASSIGN_REVIEWERS_TO_TOPIC', chairId, 'Topic', dto.topic);
@@ -259,5 +315,38 @@ export class AssignmentsService {
     await this.auditService.log('UNASSIGN_REVIEWER', chairId, 'Assignment', assignmentId);
 
     return { message: 'Reviewer unassigned successfully' };
+  }
+
+  /**
+   * INTERNAL: find assignments by reviewer id
+   */
+  async findByReviewer(reviewerId: number) {
+    return this.assignmentRepo.find({ where: { reviewerId } });
+  }
+
+  /**
+   * INTERNAL: mark an assignment accepted by reviewer
+   */
+  async markAccepted(assignmentId: string, reviewerId: number) {
+    const a = await this.assignmentRepo.findOne({ where: { id: assignmentId } as any });
+    if (!a) return null;
+    if (a.reviewerId !== Number(reviewerId)) return null;
+    a.status = AssignmentStatus.ASSIGNED;
+    await this.assignmentRepo.save(a);
+    await this.auditService.log('ASSIGNMENT_ACCEPTED', reviewerId, 'Assignment', assignmentId);
+    return a;
+  }
+
+  /**
+   * INTERNAL: mark an assignment declined by reviewer
+   */
+  async markDeclined(assignmentId: string, reviewerId: number) {
+    const a = await this.assignmentRepo.findOne({ where: { id: assignmentId } as any });
+    if (!a) return null;
+    if (a.reviewerId !== Number(reviewerId)) return null;
+    a.status = AssignmentStatus.DECLINED;
+    await this.assignmentRepo.save(a);
+    await this.auditService.log('ASSIGNMENT_DECLINED', reviewerId, 'Assignment', assignmentId);
+    return a;
   }
 }

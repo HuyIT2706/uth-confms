@@ -1,97 +1,116 @@
-import { Body, Controller, Get, Param, Post, Patch, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { Controller, Post, Body, Get, Req, UseGuards, Param, NotFoundException, BadRequestException, HttpCode, Headers, Put, Delete } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
 import { ReviewerService } from './reviewer.service';
-import { CreateReviewDto } from './dto/create-review.dto';
-import { UpdateReviewDto } from './dto/update-review.dto';
-import { PostDiscussionDto } from './dto/post-discussion.dto';
+import { IncomingInvitationDto } from './dto/incoming-invitation.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdateTopicsDto } from './dto/update-topics.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { Request } from 'express';
 
 @ApiTags('Reviewer')
-@ApiBearerAuth('JWT-auth')
-@Controller('reviewer')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('REVIEWER')
+@Controller('reviewer/invitations')
 export class ReviewerController {
-  constructor(private readonly svc: ReviewerService) {}
+  constructor(private readonly reviewerService: ReviewerService) {}
 
-  @Get('assignments')
-  @ApiOperation({ summary: 'Lấy danh sách phân công của reviewer hiện tại' })
-  async listAssignments(@CurrentUser('sub') userId: number) {
-    return this.svc.listAssignments(userId);
+  @Post()
+  @ApiOperation({ summary: 'Conference-service gửi invitation tới reviewer (service-to-service)' })
+  @ApiBody({ type: IncomingInvitationDto })
+  @ApiResponse({ status: 201, description: 'Invitation created' })
+  @HttpCode(201)
+  async create(@Body() body: IncomingInvitationDto, @Headers('x-service-secret') secret?: string) {
+    const configured = process.env.REVIEWER_SERVICE_SECRET;
+    if (configured && configured !== secret) {
+      throw new BadRequestException('Invalid service secret');
+    }
+    console.log('[ReviewService] Received invitation from conference-service:', {
+      externalInvitationId: body.externalInvitationId,
+      conferenceId: body.conferenceId,
+      reviewerId: body.reviewerId,
+      conferenceName: body.conferenceName,
+    });
+    const inv = await this.reviewerService.createInvitation(body as any);
+    console.log('[ReviewService] Created invitation:', inv.id);
+    return inv;
   }
 
-  @Post('assignments/:id/accept')
-  @ApiOperation({ summary: 'Chấp nhận phân công đánh giá' })
-  async accept(@Param('id') id: number, @CurrentUser('sub') userId: number) {
-    return this.svc.acceptAssignment(Number(id), userId);
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reviewer xem danh sách lời mời của mình' })
+  @ApiResponse({ status: 200, description: 'Danh sách invitations' })
+  async list(@Req() req: Request) {
+    // req.user được set bởi JwtStrategy
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    return this.reviewerService.findByReviewer(reviewerId);
   }
 
-  @Post('assignments/:id/reject')
-  @ApiOperation({ summary: 'Từ chối phân công đánh giá' })
-  async reject(@Param('id') id: number, @CurrentUser('sub') userId: number) {
-    return this.svc.rejectAssignment(Number(id), userId);
+  private async changeStatusAndReturn(id: string, status: 'pending' | 'accepted' | 'rejected') {
+    const inv = await this.reviewerService.updateStatus(id, status);
+    if (!inv) throw new NotFoundException('Invitation not found');
+    return inv;
   }
 
-  @Get('assignments/:id/paper')
-  @ApiOperation({ summary: 'Lấy file bài nộp của phân công (nếu có quyền)' })
-  async getPaper(@Param('id') id: number, @CurrentUser('sub') userId: number) {
-    return this.svc.getPaper(Number(id), userId);
+  @Post(':id/accept')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Accept invitation' })
+  async accept(@Param('id') id: string) {
+    return this.changeStatusAndReturn(id, 'accepted');
   }
 
-  @Get('assignments/:id/review')
-  @ApiOperation({ summary: 'Lấy review hiện tại cùng lịch sử chỉnh sửa' })
-  async getReview(@Param('id') id: number, @CurrentUser('sub') userId: number) {
-    return this.svc.getReviewByAssignment(Number(id), userId);
+  @Post(':id/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject invitation' })
+  async reject(@Param('id') id: string) {
+    return this.changeStatusAndReturn(id, 'rejected');
   }
 
-  @Post('assignments/:id/review')
-  @ApiOperation({ summary: 'Tạo review mới cho phân công (nếu chưa có)' })
-  async createReview(
-    @Param('id') assignmentId: number,
-    @Body() dto: CreateReviewDto,
-    @CurrentUser('sub') userId: number
-  ) {
-    return this.svc.createReview(Number(assignmentId), dto, userId);
+  @Post(':id/pending')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revert invitation to pending' })
+  async pending(@Param('id') id: string) {
+    return this.changeStatusAndReturn(id, 'pending');
   }
 
-  @Patch('assignments/:id/review')
-  @ApiOperation({ summary: 'Cập nhật review hiện có (lưu lịch sử trước khi sửa)' })
-  async updateReview(
-    @Param('id') assignmentId: number,
-    @Body() dto: UpdateReviewDto,
-    @CurrentUser('sub') userId: number
-  ) {
-    return this.svc.updateReview(Number(assignmentId), dto, userId);
+  @Put(':id/topics')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reviewer khai báo chuyên môn (topics) của mình cho hội nghị này' })
+  @ApiBody({ type: UpdateTopicsDto })
+  @ApiResponse({ status: 200, description: 'Topics đã được cập nhật' })
+  async updateTopics(@Param('id') id: string, @Body() dto: UpdateTopicsDto, @Req() req: Request) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    
+    const inv = await this.reviewerService.updateTopics(id, dto.topics, reviewerId);
+    if (!inv) throw new NotFoundException('Invitation not found');
+    return inv;
   }
 
-  @Post('assignments/:id/submit-final')
-  @ApiOperation({ summary: 'Nộp final review (chỉ khi có score và publicComment)' })
-  async submitFinal(@Param('id') assignmentId: number, @CurrentUser('sub') userId: number) {
-    return this.svc.submitFinal(Number(assignmentId), userId);
-  }
-
-  @Post('assignments/:id/withdraw-final')
-  @ApiOperation({ summary: 'Thu hồi final-review đã nộp để cho phép chỉnh sửa lại' })
-  async withdrawFinal(@Param('id') assignmentId: number, @CurrentUser('sub') userId: number) {
-    return this.svc.withdrawFinal(Number(assignmentId), userId);
-  }
-
-  @Get('discussion/:submissionId')
-  @ApiOperation({ summary: 'Lấy danh sách discussion cho submission (reviewer có quyền)' })
-  async listDiscussion(@Param('submissionId') submissionId: string, @CurrentUser('sub') userId: number) {
-    return this.svc.listDiscussion(submissionId, userId);
-  }
-
-  @Post('discussion/:submissionId')
-  @ApiOperation({ summary: 'Gửi tin nhắn thảo luận cho submission' })
-  async postDiscussion(
-    @Param('submissionId') submissionId: string,
-    @Body() dto: PostDiscussionDto,
-    @CurrentUser('sub') userId: number
-  ) {
-    return this.svc.postDiscussion(submissionId, dto.content, userId);
+  @Delete('external/:externalInvitationId')
+  @ApiOperation({ summary: 'Conference-service xóa invitation (service-to-service)' })
+  @ApiParam({ name: 'externalInvitationId', description: 'ID của invitation từ conference-service' })
+  @ApiResponse({ status: 200, description: 'Invitation deleted' })
+  async delete(@Param('externalInvitationId') externalInvitationId: string, @Headers('x-service-secret') secret?: string) {
+    const configured = process.env.REVIEWER_SERVICE_SECRET;
+    if (configured && configured !== secret) {
+      throw new BadRequestException('Invalid service secret');
+    }
+    console.log('[ReviewService] Received delete request for externalInvitationId:', externalInvitationId);
+    const deleted = await this.reviewerService.deleteByExternalId(externalInvitationId);
+    if (!deleted) {
+      throw new NotFoundException('Invitation not found');
+    }
+    console.log('[ReviewService] Deleted invitation with externalInvitationId:', externalInvitationId);
+    return { message: 'Invitation deleted successfully' };
   }
 }

@@ -1,0 +1,36 @@
+@startuml
+' Use Case: Register API (Identity Service)
+' UML 2.5 compliant use-case diagram for POST /auth/register
+left to right direction
+skinparam packageStyle rectangle
+
+actor Guest
+
+package "Identity Service" {
+  usecase "Register (POST /auth/register)" as UC_Register
+  usecase "Create User Record" as UC_CreateUser
+  usecase "Store Hashed Credentials" as UC_StoreCreds
+  usecase "Generate Verification Token" as UC_GenToken
+  usecase "Send Verification Email" as UC_SendEmail
+  usecase "Return Registration Response" as UC_Response
+}
+
+' Relationships
+Guest --> UC_Register
+UC_Register .> UC_CreateUser : <<include>>
+UC_CreateUser .> UC_StoreCreds : <<include>>
+UC_CreateUser .> UC_GenToken : <<include>>
+UC_GenToken .> UC_SendEmail : <<include>>
+UC_Register .> UC_Response : <<include>>
+
+note right of UC_Register
+  Request: JSON { email, password, fullName }
+  Response: 201 Created (message + user data)
+end note
+
+note left of UC_SendEmail
+  Email sent asynchronously; may use mailer service
+  Token valid for N minutes (configurable)
+end note
+
+@enduml

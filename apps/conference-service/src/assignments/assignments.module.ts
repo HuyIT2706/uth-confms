@@ -5,11 +5,13 @@ import { HttpModule } from '@nestjs/axios';
 import { Assignment } from './entities/assignment.entity';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsController } from './assignments.controller';
+// Internal controller removed: AssignmentsInternalController
 
 import { ConferencesModule } from '../conferences/conferences.module';
 import { AuditModule } from '../audit/audit.module';
 import { UsersModule } from '../users/users.module'; // Nếu có thì giữ, không thì bỏ
 import { SubmissionsClient } from '../integrations/submissions.client';
+import { InvitationsModule } from '../invitations/invitations.module';
 
 // THÊM DÒNG NÀY
 import { AiModule } from '../ai/ai.module';  // Đường dẫn đến AiModule
@@ -20,6 +22,7 @@ import { AiModule } from '../ai/ai.module';  // Đường dẫn đến AiModule
     ConferencesModule,
     AuditModule,
     UsersModule, // Nếu không tồn tại thì xóa dòng này
+    InvitationsModule,
     HttpModule,
     AiModule, // ← THÊM DÒNG NÀY ĐỂ NEST BIẾT AiService Ở ĐÂU
   ],

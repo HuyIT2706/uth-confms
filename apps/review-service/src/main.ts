@@ -1,45 +1,32 @@
-// src/main.ts (Update để fix crypto error)
 import { NestFactory } from '@nestjs/core';
 import { ReviewServiceModule } from './review-service.module';
-import { webcrypto, randomUUID } from 'crypto';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
-const g: any = global as any;
-if (typeof g.crypto === 'undefined') {
-  g.crypto = webcrypto;
-}
-if (g.crypto && !g.crypto.randomUUID) {
-  g.crypto.randomUUID = randomUUID;
+// Nếu đang phát triển và chưa set DB_REVIEW_SYNC, bật để TypeORM tự tạo bảng (dev only)
+if (!process.env.DB_REVIEW_SYNC && process.env.NODE_ENV !== 'production') {
+  process.env.DB_REVIEW_SYNC = 'true';
+  console.log('DB_REVIEW_SYNC not set — enabling DB sync for dev (DB_REVIEW_SYNC=true)');
 }
 
 async function bootstrap() {
   const app = await NestFactory.create(ReviewServiceModule);
-  app.setGlobalPrefix('api');
+  const globalPrefix = 'api';
+  app.setGlobalPrefix(globalPrefix);
+
+  // enable CORS so external clients (e.g. frontends, curl) can call the health/profile endpoints
+  app.enableCors();
 
   const config = new DocumentBuilder()
-    .setTitle('UTH-ConfMS Review Service')
-    .setDescription('Review Service API (Reviewer & PC)')
+    .setTitle('Review Service')
+    .setDescription('Review service API')
     .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
+    .addBearerAuth()
     .build();
-
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup(`${globalPrefix}/docs`, app, document);
 
-  const port = process.env.PORT || 3004;
-  await app.listen(port as any);
-  console.log(`[Review-Service] Application is running on: http://localhost:${port}/api`);
-  console.log(`[Review-Service] Swagger documentation: http://localhost:${port}/api/docs`);
+  const port = process.env.PORT ? Number(process.env.PORT) : 3004;
+  await app.listen(port);
+  console.log(`Review service listening on http://localhost:${port}/${globalPrefix}`);
 }
-
 bootstrap();

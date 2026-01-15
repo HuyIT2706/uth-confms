@@ -1,0 +1,91 @@
+@startuml
+' Identity Service - Full Use Case Diagram (from Swagger controllers)
+left to right direction
+skinparam packageStyle rectangle
+
+actor Guest
+actor "Authenticated User" as User
+actor Reviewer
+actor Chair
+actor Admin
+
+package "Identity Service" {
+  usecase "Register" as UC_Register
+  usecase "Send Verification Email" as UC_SendVerification
+  usecase "Verify Email (code)" as UC_VerifyEmail
+  usecase "Get Verification Token (dev)" as UC_GetVerificationToken
+
+  usecase "Login (get tokens)" as UC_Login
+  usecase "Validate Refresh Token" as UC_ValidateRefresh
+  usecase "Refresh Token" as UC_Refresh
+  usecase "Logout (revoke refresh)" as UC_Logout
+  usecase "Invalidate Refresh Token" as UC_InvalidateRefresh
+
+  usecase "Forgot Password" as UC_ForgotPassword
+  usecase "Send Reset Code" as UC_SendResetCode
+  usecase "Get Reset Code (dev)" as UC_GetResetCode
+  usecase "Verify Reset Code" as UC_VerifyReset
+  usecase "Reset Password" as UC_ResetPassword
+
+  usecase "Get Profile" as UC_GetProfile
+  usecase "Change Password" as UC_ChangePassword
+
+  usecase "Create User (Admin)" as UC_CreateUser
+  usecase "Update User Roles (Admin)" as UC_UpdateRoles
+  usecase "Delete User (Admin)" as UC_DeleteUser
+}
+
+' include / extend relationships
+UC_Register .> UC_SendVerification : <<include>>
+UC_Logout .> UC_InvalidateRefresh : <<include>>
+UC_Refresh .> UC_ValidateRefresh : <<include>>
+UC_ForgotPassword .> UC_SendResetCode : <<include>>
+UC_ResetPassword .> UC_VerifyReset : <<include>>
+
+' optional/exceptional flows
+UC_VerifyReset .> UC_ResetPassword : <<extend>>
+UC_VerifyEmail .> UC_Register : <<extend>>
+
+' Associations (actors)
+Guest --> UC_Register
+Guest --> UC_Login
+Guest --> UC_ForgotPassword
+Guest --> UC_GetResetCode
+Guest --> UC_VerifyReset
+Guest --> UC_ResetPassword
+Guest --> UC_VerifyEmail
+Guest --> UC_GetVerificationToken
+
+User --> UC_GetProfile
+User --> UC_ChangePassword
+User --> UC_Logout
+User --> UC_Refresh
+
+Reviewer --> UC_GetProfile
+Reviewer --> UC_ChangePassword
+Reviewer --> UC_Logout
+Reviewer --> UC_Refresh
+
+Chair --> UC_GetProfile
+Chair --> UC_ChangePassword
+Chair --> UC_Logout
+Chair --> UC_Refresh
+
+Admin --> UC_CreateUser
+Admin --> UC_UpdateRoles
+Admin --> UC_DeleteUser
+Admin --> UC_GetVerificationToken
+Admin --> UC_GetResetCode
+
+' Notes: dev-only helper endpoints
+note right of UC_GetVerificationToken
+  Dev-only helper endpoint to fetch verification
+  tokens from DB (used in tests).
+end note
+
+note right of UC_GetResetCode
+  Dev-only helper to fetch reset codes from DB
+  (testing helper)
+end note
+
+@enduml
