@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +20,8 @@ import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class AssignmentsService {
+  private readonly logger = new Logger(AssignmentsService.name);
+
   constructor(
     @InjectRepository(Assignment)
     private assignmentRepo: Repository<Assignment>,
@@ -287,9 +290,12 @@ export class AssignmentsService {
 
           // fire-and-forget, don't block chair action on notify failure
           this.httpService.post(notifyUrl, payload).toPromise().catch(err => {
+            this.logger.error(`Failed to notify review-service: ${err.message}`, err.stack);
             this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Failed to notify review-service: ${err.message}`);
           });
+          this.logger.log(`Notifying review-service about assignment ${saved.id} to ${notifyUrl}`);
         } catch (err) {
+            this.logger.error(`Notify exception: ${err.message}`, err.stack);
           this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Notify exception: ${err.message}`);
         }
       }
@@ -311,6 +317,20 @@ export class AssignmentsService {
     if (conference.chairId !== chairId) throw new ForbiddenException('Only chair can unassign');
 
     await this.assignmentRepo.remove(assignment);
+
+    // Notify review-service to delete the assignment
+    try {
+      const reviewBase = process.env.REVIEW_SERVICE_URL || 'http://review-service:3004/api';
+      const notifyUrl = `${reviewBase}/internal/assignments/${assignmentId}/delete`;
+      const secret = process.env.REVIEWER_SERVICE_SECRET || '';
+      
+      // fire-and-forget, don't block chair action on notify failure
+      this.httpService.post(notifyUrl, {}, { headers: secret ? { 'x-service-secret': secret } : {} }).toPromise().catch(err => {
+        this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Failed to notify review-service to delete assignment: ${err.message}`);
+      });
+    } catch (err) {
+      this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Notify delete exception: ${err.message}`);
+    }
 
     await this.auditService.log('UNASSIGN_REVIEWER', chairId, 'Assignment', assignmentId);
 

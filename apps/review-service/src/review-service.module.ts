@@ -10,6 +10,7 @@ import { ProfileController } from './profile.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReviewerModule } from './reviewer/reviewer.module';
 import { Invitation } from './reviewer/entities/invitation.entity';
+import { ReviewerAssignment } from './reviewer/entities/reviewer-assignment.entity';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { Invitation } from './reviewer/entities/invitation.entity';
           return {
             type: 'postgres',
             url,
-            entities: [Invitation],
+            entities: [Invitation, ReviewerAssignment],
             synchronize,
             ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
           };
@@ -55,7 +56,7 @@ import { Invitation } from './reviewer/entities/invitation.entity';
           username,
           password,
           database,
-          entities: [Invitation],
+          entities: [Invitation, ReviewerAssignment],
           synchronize,
           ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
         };

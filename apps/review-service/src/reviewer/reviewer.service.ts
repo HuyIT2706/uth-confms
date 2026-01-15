@@ -1,7 +1,8 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invitation } from './entities/invitation.entity';
+import { ReviewerAssignment, ReviewerAssignmentStatus } from './entities/reviewer-assignment.entity';
 import type { IncomingInvitationDto } from './dto/incoming-invitation.dto';
 
 @Injectable()
@@ -11,6 +12,8 @@ export class ReviewerService {
   constructor(
     @InjectRepository(Invitation)
     private readonly repo: Repository<Invitation>,
+    @InjectRepository(ReviewerAssignment)
+    private readonly assignmentRepo: Repository<ReviewerAssignment>,
   ) {}
 
   async createInvitation(payload: Partial<IncomingInvitationDto>): Promise<Invitation> {
@@ -210,5 +213,187 @@ export class ReviewerService {
     } catch (err: any) {
       this.logger.error(`Exception notifying conference-service about topics update: ${err.message}`, err.stack);
     }
+  }
+
+  // ==================== REVIEWER ASSIGNMENTS ====================
+
+  /**
+   * Lấy danh sách assignments của reviewer hiện tại
+   */
+  async getMyAssignments(reviewerId: number): Promise<ReviewerAssignment[]> {
+    return this.assignmentRepo.find({
+      where: { reviewerId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Lấy chi tiết một assignment
+   */
+  async getAssignmentDetail(conferenceAssignmentId: string, reviewerId: number): Promise<ReviewerAssignment | null> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId, reviewerId },
+    });
+    return assignment || null;
+  }
+
+  /**
+   * Chấp nhận một phân công
+   * Điều kiện: reviewer phải đã chấp nhận lời mời vào hội nghị đó
+   */
+  async acceptAssignment(conferenceAssignmentId: string, reviewerId: number): Promise<ReviewerAssignment> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId, reviewerId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    // Kiểm tra xem reviewer đã chấp nhận lời mời hội nghị này chưa
+    const invitation = await this.repo.findOne({
+      where: {
+        conferenceId: assignment.conferenceId,
+        reviewerId,
+        status: 'accepted',
+      },
+    });
+
+    if (!invitation) {
+      throw new ForbiddenException(
+        'You must accept the conference invitation before accepting a submission assignment'
+      );
+    }
+
+    assignment.status = ReviewerAssignmentStatus.ACCEPTED;
+    const saved = await this.assignmentRepo.save(assignment);
+    this.logger.log(
+      `Reviewer ${reviewerId} accepted assignment ${conferenceAssignmentId} for conference ${assignment.conferenceId}`
+    );
+    return saved;
+  }
+
+  /**
+   * Từ chối một phân công
+   */
+  async rejectAssignment(conferenceAssignmentId: string, reviewerId: number): Promise<ReviewerAssignment> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId, reviewerId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    assignment.status = ReviewerAssignmentStatus.REJECTED;
+    const saved = await this.assignmentRepo.save(assignment);
+    this.logger.log(
+      `Reviewer ${reviewerId} rejected assignment ${conferenceAssignmentId} for conference ${assignment.conferenceId}`
+    );
+    return saved;
+  }
+
+  /**
+   * Đặt lại trạng thái phân công về pending
+   */
+  async resetAssignmentStatus(conferenceAssignmentId: string, reviewerId: number): Promise<ReviewerAssignment> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId, reviewerId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    assignment.status = ReviewerAssignmentStatus.PENDING;
+    const saved = await this.assignmentRepo.save(assignment);
+    this.logger.log(
+      `Reviewer ${reviewerId} reset assignment ${conferenceAssignmentId} status to pending`
+    );
+    return saved;
+  }
+
+  /**
+   * Tạo một assignment cho reviewer (được gọi từ conference-service hoặc internal)
+   */
+  async createAssignment(
+    conferenceId: string,
+    reviewerId: number,
+    submissionId?: string,
+    topic?: string,
+    submissionInfo?: any
+  ): Promise<ReviewerAssignment> {
+    // Extract conferenceAssignmentId từ submissionInfo nếu có
+    const conferenceAssignmentId = submissionInfo?.conferenceAssignmentId;
+    if (!conferenceAssignmentId) {
+      throw new BadRequestException('conferenceAssignmentId is required in submissionInfo');
+    }
+
+    const whereClause: any = { conferenceId, reviewerId };
+    if (submissionId) {
+      whereClause.submissionId = submissionId;
+    }
+    
+    const existing = await this.assignmentRepo.findOne({
+      where: whereClause,
+    });
+
+    if (existing) {
+      this.logger.warn(
+        `Assignment already exists for reviewer ${reviewerId}, conference ${conferenceId}, submission ${submissionId}`
+      );
+      return existing;
+    }
+
+    const assignment = this.assignmentRepo.create({
+      conferenceAssignmentId,
+      conferenceId,
+      reviewerId,
+      submissionId,
+      topic,
+      submissionInfo,
+      status: ReviewerAssignmentStatus.PENDING,
+    });
+
+    const saved = await this.assignmentRepo.save(assignment);
+    this.logger.log(
+      `Created assignment for reviewer ${reviewerId}, conference ${conferenceId}, submission ${submissionId}, conferenceAssignmentId: ${conferenceAssignmentId}`
+    );
+    return saved;
+  }
+
+  /**
+   * Hủy một assignment (được gọi từ conference-service)
+   */
+  async deleteAssignment(conferenceAssignmentId: string): Promise<boolean> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId },
+    });
+
+    if (!assignment) {
+      return false;
+    }
+
+    await this.assignmentRepo.remove(assignment);
+    this.logger.log(`Deleted assignment ${conferenceAssignmentId}`);
+    return true;
+  }
+
+  /**
+   * Hủy assignment theo conferenceAssignmentId (được gọi từ conference-service)
+   */
+  async deleteAssignmentByConferenceId(conferenceAssignmentId: string): Promise<boolean> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId },
+    });
+
+    if (!assignment) {
+      this.logger.warn(`Assignment with conferenceAssignmentId ${conferenceAssignmentId} not found`);
+      return false;
+    }
+
+    await this.assignmentRepo.remove(assignment);
+    this.logger.log(`Deleted assignment with conferenceAssignmentId: ${conferenceAssignmentId}`);
+    return true;
   }
 }

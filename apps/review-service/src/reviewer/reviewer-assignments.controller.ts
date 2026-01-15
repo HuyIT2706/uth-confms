@@ -1,0 +1,196 @@
+import { Controller, Post, Body, Get, Req, UseGuards, Param, NotFoundException, BadRequestException, HttpCode, Headers, ForbiddenException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiForbiddenResponse, ApiNotFoundResponse } from '@nestjs/swagger';
+import { ReviewerService } from './reviewer.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ReviewerAssignmentDto } from './dto/reviewer-assignment.dto';
+import type { Request } from 'express';
+
+@ApiTags('Reviewer Assignments')
+@Controller('reviewer/assignments')
+export class ReviewerAssignmentsController {
+  constructor(private readonly reviewerService: ReviewerService) {}
+
+  /**
+   * Lấy danh sách bài báo được phân công cho reviewer hiện tại
+   */
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Lấy danh sách bài báo được phân công cho reviewer',
+    description: 'Reviewer xem tất cả bài báo mà mình được phân công, kèm theo status (pending/accepted/rejected). Danh tính tác giả không được tiết lộ.'
+  })
+  @ApiResponse({ status: 200, description: 'Danh sách assignments' })
+  async getMyAssignments(@Req() req: Request): Promise<ReviewerAssignmentDto[]> {
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    
+    return this.reviewerService.getMyAssignments(reviewerId) as any;
+  }
+
+  /**
+   * Lấy chi tiết một assignment
+   */
+  @Get(':conferenceAssignmentId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Lấy chi tiết một assignment',
+  })
+  @ApiParam({ name: 'conferenceAssignmentId', description: 'ID assignment từ conference-service', example: 'f2580139-07f3-4864-bba0-3a5f9a03170f' })
+  @ApiResponse({ status: 200, description: 'Chi tiết assignment' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy assignment' })
+  async getAssignmentDetail(@Req() req: Request, @Param('conferenceAssignmentId') conferenceAssignmentId: string): Promise<ReviewerAssignmentDto> {
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    
+    const assignment = await this.reviewerService.getAssignmentDetail(conferenceAssignmentId, reviewerId);
+    if (!assignment) throw new NotFoundException('Assignment not found');
+    return assignment as any;
+  }
+
+  /**
+   * Chấp nhận một phân công
+   * Điều kiện: reviewer phải đã chấp nhận lời mời vào hội nghị đó
+   */
+  @Post(':conferenceAssignmentId/accept')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Chấp nhận một bài báo được phân công',
+    description: 'Reviewer chấp nhận phân công (status: pending → accepted). Điều kiện: phải đã chấp nhận lời mời vào hội nghị này.'
+  })
+  @ApiParam({ name: 'conferenceAssignmentId', description: 'ID assignment từ conference-service', example: 'f2580139-07f3-4864-bba0-3a5f9a03170f' })
+  @ApiResponse({ status: 200, description: 'Assignment đã được chấp nhận' })
+  @ApiForbiddenResponse({ description: 'Chưa chấp nhận lời mời hội nghị hoặc assignment không tồn tại' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy assignment' })
+  async acceptAssignment(@Req() req: Request, @Param('conferenceAssignmentId') conferenceAssignmentId: string): Promise<ReviewerAssignmentDto> {
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    
+    try {
+      return await this.reviewerService.acceptAssignment(conferenceAssignmentId, reviewerId) as any;
+    } catch (error: any) {
+      if (error instanceof ForbiddenException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  /**
+   * Từ chối một phân công
+   */
+  @Post(':conferenceAssignmentId/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Từ chối một bài báo được phân công',
+    description: 'Reviewer từ chối phân công (status: pending → rejected)'
+  })
+  @ApiParam({ name: 'conferenceAssignmentId', description: 'ID assignment từ conference-service', example: 'f2580139-07f3-4864-bba0-3a5f9a03170f' })
+  @ApiResponse({ status: 200, description: 'Assignment đã được từ chối' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy assignment' })
+  async rejectAssignment(@Req() req: Request, @Param('conferenceAssignmentId') conferenceAssignmentId: string): Promise<ReviewerAssignmentDto> {
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    
+    return this.reviewerService.rejectAssignment(conferenceAssignmentId, reviewerId) as any;
+  }
+
+  /**
+   * Đặt lại trạng thái phân công về pending
+   */
+  @Post(':conferenceAssignmentId/pending')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Đặt lại trạng thái assignment về pending',
+    description: 'Reviewer đưa assignment về trạng thái pending (nếu trước đó đã từ chối hoặc chấp nhận)'
+  })
+  @ApiParam({ name: 'conferenceAssignmentId', description: 'ID assignment từ conference-service', example: 'f2580139-07f3-4864-bba0-3a5f9a03170f' })
+  @ApiResponse({ status: 200, description: 'Assignment đã được đặt lại' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy assignment' })
+  async resetAssignmentStatus(@Req() req: Request, @Param('conferenceAssignmentId') conferenceAssignmentId: string): Promise<ReviewerAssignmentDto> {
+    const user = (req as any).user;
+    if (!user) throw new BadRequestException('Token missing user info');
+    const reviewerId = Number(user.sub ?? user.id ?? user.userId);
+    if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
+    
+    return this.reviewerService.resetAssignmentStatus(conferenceAssignmentId, reviewerId) as any;
+  }
+
+  /**
+   * Service-to-service: Conference-service tạo assignment cho reviewer
+   */
+  @Post()
+  @HttpCode(201)
+  @ApiOperation({ 
+    summary: 'Conference-service tạo assignment cho reviewer (service-to-service)',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        conferenceId: { type: 'string', description: 'ID hội nghị', example: 'c2a65b80-fd67-474e-8390-895c76422f10' },
+        reviewerId: { type: 'number', description: 'ID reviewer' },
+        submissionId: { type: 'string', description: 'ID bài báo (optional)' },
+        topic: { type: 'string', description: 'Topic của bài báo' },
+        submissionInfo: { type: 'object', description: 'Thông tin bài báo (không bao gồm tác giả)' }
+      },
+      required: ['conferenceId', 'reviewerId']
+    }
+  })
+  @ApiResponse({ status: 201, description: 'Assignment created' })
+  async createAssignment(
+    @Body() body: any,
+    @Headers('x-service-secret') secret?: string
+  ): Promise<ReviewerAssignmentDto> {
+    const configured = process.env.REVIEWER_SERVICE_SECRET;
+    if (configured && configured !== secret) {
+      throw new BadRequestException('Invalid service secret');
+    }
+    
+    return this.reviewerService.createAssignment(
+      body.conferenceId,
+      body.reviewerId,
+      body.submissionId,
+      body.topic,
+      body.submissionInfo
+    ) as any;
+  }
+
+  /**
+   * Service-to-service: Conference-service xóa assignment
+   */
+  @Post(':id/delete')
+  @ApiOperation({ 
+    summary: 'Conference-service xóa assignment (service-to-service)',
+  })
+  @ApiParam({ name: 'id', description: 'ID của assignment' })
+  @ApiResponse({ status: 200, description: 'Assignment deleted' })
+  async deleteAssignment(
+    @Param('id') id: string,
+    @Headers('x-service-secret') secret?: string
+  ) {
+    const configured = process.env.REVIEWER_SERVICE_SECRET;
+    if (configured && configured !== secret) {
+      throw new BadRequestException('Invalid service secret');
+    }
+    
+    const deleted = await this.reviewerService.deleteAssignment(id);
+    if (!deleted) {
+      throw new NotFoundException('Assignment not found');
+    }
+    
+    return { message: 'Assignment deleted successfully' };
+  }
+}
