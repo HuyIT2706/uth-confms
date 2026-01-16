@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowBack, Save, Cancel } from '@mui/icons-material';
+import { useCreateUserMutation } from '../../redux/api/usersApi';
 
 const CreateUserPage = () => {
     const navigate = useNavigate();
+    const [createUser, { isLoading }] = useCreateUserMutation();
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         password: '',
         confirmPassword: '',
         roles: [] as string[],
-        status: 'Active',
+        // status removed: trạng thái luôn mặc định "Không hoạt động" cho đến khi xác minh email
     });
 
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -59,26 +62,38 @@ const CreateUserPage = () => {
         }
 
         if (formData.roles.length === 0) {
-            newErrors.roles = 'Vui lòng chọn ít nhất một vai trò';
+            newErrors.roles = 'Vui lòng chọn một vai trò';
+        } else if (formData.roles.length > 1) {
+            newErrors.roles = 'Chỉ được chọn một vai trò';
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!validateForm()) {
             return;
         }
 
-        // TODO: Call API to create user
-        console.log('Create user:', formData);
+        try {
+            await createUser({
+                email: formData.email,
+                password: formData.password,
+                fullName: formData.name,
+                role: formData.roles[0] as 'ADMIN' | 'CHAIR' | 'AUTHOR' | 'REVIEWER' | 'PC_MEMBER',
+            }).unwrap();
 
-        // Show success message and redirect
-        alert('Tạo người dùng thành công!');
-        navigate('/admin/users');
+            alert('Tạo người dùng thành công!');
+            navigate('/admin/users');
+        } catch (error: any) {
+            const message =
+                error?.data?.message ||
+                (typeof error?.error === 'string' ? error.error : 'Tạo người dùng thất bại');
+            alert(message);
+        }
     };
 
     const handleCancel = () => {
@@ -111,6 +126,7 @@ const CreateUserPage = () => {
             {/* Main Content */}
             <div className="max-w-4xl mx-auto px-6 py-8">
                 <form onSubmit={handleSubmit}>
+                    {/* Thông tin cơ bản */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                         <h2 className="text-xl font-bold text-gray-900 mb-6">
                             Thông tin cơ bản
@@ -204,7 +220,7 @@ const CreateUserPage = () => {
                             Vai trò <span className="text-red-500">*</span>
                         </h2>
                         <p className="text-sm text-gray-600 mb-4">
-                            Chọn một hoặc nhiều vai trò cho người dùng
+                            Chọn một vai trò cho người dùng
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -213,8 +229,8 @@ const CreateUserPage = () => {
                                     key={role}
                                     onClick={() => handleRoleToggle(role)}
                                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.roles.includes(role)
-                                            ? 'border-[#008689] bg-[#e6f7f7]'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-[#008689] bg-[#e6f7f7]'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     <div className="flex items-center">
@@ -242,43 +258,6 @@ const CreateUserPage = () => {
                         )}
                     </div>
 
-                    {/* Status */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">
-                            Trạng thái
-                        </h2>
-
-                        <div className="flex items-center gap-4">
-                            <label className="flex items-center cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="status"
-                                    value="Active"
-                                    checked={formData.status === 'Active'}
-                                    onChange={handleInputChange}
-                                    className="w-4 h-4 text-[#008689] border-gray-300 focus:ring-[#008689]"
-                                />
-                                <span className="ml-2 text-sm font-medium text-gray-900">
-                                    Đang hoạt động
-                                </span>
-                            </label>
-
-                            <label className="flex items-center cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="status"
-                                    value="Inactive"
-                                    checked={formData.status === 'Inactive'}
-                                    onChange={handleInputChange}
-                                    className="w-4 h-4 text-[#008689] border-gray-300 focus:ring-[#008689]"
-                                />
-                                <span className="ml-2 text-sm font-medium text-gray-900">
-                                    Không hoạt động
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-
                     {/* Action Buttons */}
                     <div className="flex items-center justify-end gap-4">
                         <button
@@ -291,10 +270,11 @@ const CreateUserPage = () => {
                         </button>
                         <button
                             type="submit"
-                            className="inline-flex items-center px-6 py-3 bg-[#008689] hover:bg-[#006666] text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                            disabled={isLoading}
+                            className="inline-flex items-center px-6 py-3 bg-[#008689] hover:bg-[#006666] text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                             <Save className="w-5 h-5 mr-2" />
-                            Tạo người dùng
+                            {isLoading ? 'Đang tạo...' : 'Tạo người dùng'}
                         </button>
                     </div>
                 </form>

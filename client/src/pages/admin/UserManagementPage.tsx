@@ -31,10 +31,10 @@ const UserManagementPage = () => {
 
     // Fetch users from API
     const { data: usersData, isLoading, error } = useGetUsersQuery();
-    
+
     // Map API data to component format
     const apiUsers = Array.isArray(usersData) ? usersData : (usersData?.data || usersData?.users || []);
-    
+
     const users: User[] = apiUsers.map((user: any) => {
         // Extract role from different possible formats
         let role = user.role || 'AUTHOR';
@@ -48,7 +48,8 @@ const UserManagementPage = () => {
             fullName: user.fullName || user.name || '',
             email: user.email,
             role: role,
-            status: user.isActive !== false ? 'Active' : 'Inactive',
+            // Trạng thái dựa trên isVerified: đã xác minh → Active, chưa xác minh → Inactive
+            status: user.isVerified ? 'Active' : 'Inactive',
             createdAt: user.createdAt || user.created_at || new Date().toISOString(),
         };
     });
