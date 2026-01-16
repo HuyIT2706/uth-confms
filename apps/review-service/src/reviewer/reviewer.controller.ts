@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, Req, UseGuards, Param, NotFoundException, BadRequestException, HttpCode, Headers, Put, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiParam, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ReviewerService } from './reviewer.service';
 import { IncomingInvitationDto } from './dto/incoming-invitation.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -10,9 +10,10 @@ import type { Request } from 'express';
 @ApiTags('Reviewer')
 @Controller('reviewer/invitations')
 export class ReviewerController {
-  constructor(private readonly reviewerService: ReviewerService) {}
+  constructor(private readonly reviewerService: ReviewerService) { }
 
   @Post()
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Conference-service gửi invitation tới reviewer (service-to-service)' })
   @ApiBody({ type: IncomingInvitationDto })
   @ApiResponse({ status: 201, description: 'Invitation created' })
@@ -90,13 +91,14 @@ export class ReviewerController {
     if (!user) throw new BadRequestException('Token missing user info');
     const reviewerId = Number(user.sub ?? user.id ?? user.userId);
     if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
-    
+
     const inv = await this.reviewerService.updateTopics(id, dto.topics, reviewerId);
     if (!inv) throw new NotFoundException('Invitation not found');
     return inv;
   }
 
   @Delete('external/:externalInvitationId')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Conference-service xóa invitation (service-to-service)' })
   @ApiParam({ name: 'externalInvitationId', description: 'ID của invitation từ conference-service' })
   @ApiResponse({ status: 200, description: 'Invitation deleted' })

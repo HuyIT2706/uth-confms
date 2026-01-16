@@ -1,13 +1,14 @@
 import { Controller, Post, Body, Param, Headers, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiParam, ApiResponse, ApiExcludeController } from '@nestjs/swagger';
 import { ReviewerService } from './reviewer.service';
 
 @ApiTags('Internal - Reviewer Assignments')
+@ApiExcludeController()
 @Controller('internal/assignments')
 export class ReviewerAssignmentsInternalController {
   private readonly logger = new Logger(ReviewerAssignmentsInternalController.name);
 
-  constructor(private readonly reviewerService: ReviewerService) {}
+  constructor(private readonly reviewerService: ReviewerService) { }
 
   /**
    * Conference-service gọi endpoint này để tạo assignment cho reviewer
