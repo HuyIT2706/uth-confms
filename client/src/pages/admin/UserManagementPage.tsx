@@ -3,19 +3,17 @@ import { Link } from 'react-router-dom';
 import {
     Add,
     Search,
-    FilterList,
     Edit,
     Delete,
-    Download,
     Visibility,
 } from '@mui/icons-material';
 
 interface User {
     id: number;
-    name: string;
+    fullName: string;
     email: string;
     role: string;
-    status: 'Active' | 'Inactive';
+    isVerified: boolean;
     createdAt: string;
 }
 
@@ -24,81 +22,53 @@ const UserManagementPage = () => {
     const [filterRole, setFilterRole] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
 
-    // Mock data - replace with API call
+    // Mock data - sẽ thay bằng API sau
     const users: User[] = [
         {
             id: 1,
-            name: 'Nguyễn Văn A',
-            email: 'nguyenvana@example.com',
+            fullName: 'Nguyễn Văn A',
+            email: 'admin@test.com',
             role: 'ADMIN',
-            status: 'Active',
+            isVerified: true,
             createdAt: '2025-01-15',
         },
         {
             id: 2,
-            name: 'Trần Thị B',
-            email: 'tranthib@example.com',
+            fullName: 'Trần Thị B',
+            email: 'chair@test.com',
             role: 'CHAIR',
-            status: 'Active',
+            isVerified: true,
             createdAt: '2025-02-20',
         },
         {
             id: 3,
-            name: 'Lê Văn C',
-            email: 'levanc@example.com',
+            fullName: 'Lê Văn C',
+            email: 'reviewer@test.com',
             role: 'REVIEWER',
-            status: 'Active',
+            isVerified: true,
             createdAt: '2025-03-10',
         },
         {
             id: 4,
-            name: 'Phạm Thị D',
-            email: 'phamthid@example.com',
+            fullName: 'Phạm Thị D',
+            email: 'author@test.com',
             role: 'AUTHOR',
-            status: 'Active',
+            isVerified: true,
             createdAt: '2025-03-25',
-        },
-        {
-            id: 5,
-            name: 'Hoàng Văn E',
-            email: 'hoangvane@example.com',
-            role: 'AUTHOR',
-            status: 'Inactive',
-            createdAt: '2025-04-05',
-        },
-        {
-            id: 6,
-            name: 'Võ Thị F',
-            email: 'vothif@example.com',
-            role: 'REVIEWER',
-            status: 'Active',
-            createdAt: '2025-04-12',
-        },
-        {
-            id: 7,
-            name: 'Đặng Văn G',
-            email: 'dangvang@example.com',
-            role: 'CHAIR',
-            status: 'Active',
-            createdAt: '2025-05-01',
-        },
-        {
-            id: 8,
-            name: 'Bùi Thị H',
-            email: 'buithih@example.com',
-            role: 'AUTHOR',
-            status: 'Active',
-            createdAt: '2025-05-18',
         },
     ];
 
-    // Filter users based on search and filters
+    // Filter users
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
-            user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.email.toLowerCase().includes(searchQuery.toLowerCase());
+
         const matchesRole = filterRole === 'all' || user.role === filterRole;
-        const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+
+        const userStatus = user.isVerified ? 'Active' : 'Inactive';
+        const matchesStatus = filterStatus === 'all' || userStatus === filterStatus;
+
         return matchesSearch && matchesRole && matchesStatus;
     });
 
@@ -127,6 +97,7 @@ const UserManagementPage = () => {
         if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
             // TODO: Call API to delete user
             console.log('Delete user:', userId);
+            alert('Chức năng xóa user sẽ được kết nối với API sau');
         }
     };
 
@@ -166,13 +137,13 @@ const UserManagementPage = () => {
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <p className="text-sm font-medium text-gray-600 mb-1">Đang hoạt động</p>
                         <p className="text-3xl font-bold text-green-600">
-                            {users.filter((u) => u.status === 'Active').length}
+                            {users.filter((u) => u.isVerified).length}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <p className="text-sm font-medium text-gray-600 mb-1">Không hoạt động</p>
+                        <p className="text-sm font-medium text-gray-600 mb-1">Chưa xác thực</p>
                         <p className="text-3xl font-bold text-gray-600">
-                            {users.filter((u) => u.status === 'Inactive').length}
+                            {users.filter((u) => !u.isVerified).length}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -233,21 +204,9 @@ const UserManagementPage = () => {
                             >
                                 <option value="all">Tất cả</option>
                                 <option value="Active">Đang hoạt động</option>
-                                <option value="Inactive">Không hoạt động</option>
+                                <option value="Inactive">Chưa xác thực</option>
                             </select>
                         </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-200">
-                        <button className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors duration-200">
-                            <Download className="w-4 h-4 mr-2" />
-                            Xuất CSV
-                        </button>
-                        <button className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors duration-200">
-                            <FilterList className="w-4 h-4 mr-2" />
-                            Bộ lọc nâng cao
-                        </button>
                     </div>
                 </div>
 
@@ -295,7 +254,7 @@ const UserManagementPage = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {user.name}
+                                                    {user.fullName}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -313,12 +272,10 @@ const UserManagementPage = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span
                                                     className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(
-                                                        user.status
+                                                        user.isVerified ? 'Active' : 'Inactive'
                                                     )}`}
                                                 >
-                                                    {user.status === 'Active'
-                                                        ? 'Hoạt động'
-                                                        : 'Không hoạt động'}
+                                                    {user.isVerified ? 'Hoạt động' : 'Chưa xác thực'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -363,23 +320,6 @@ const UserManagementPage = () => {
                                 Hiển thị <span className="font-medium">{filteredUsers.length}</span> /{' '}
                                 <span className="font-medium">{users.length}</span> người dùng
                             </p>
-                            <div className="flex items-center gap-2">
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    Trước
-                                </button>
-                                <button className="px-4 py-2 bg-[#008689] text-white rounded-lg text-sm font-medium">
-                                    1
-                                </button>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    2
-                                </button>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    3
-                                </button>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    Sau
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>

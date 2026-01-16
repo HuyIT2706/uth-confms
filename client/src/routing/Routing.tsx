@@ -22,6 +22,7 @@ import ConferenceDetailPageChair from '../pages/chair/ConferenceDetailPageChair.
 import PCMembersManagementPage from '../pages/chair/PCMembersManagementPage.tsx';
 import EditConferencePage from '../pages/chair/EditConferencePage.tsx';
 import UserManagementPage from '../pages/admin/UserManagementPage.tsx';
+
 import UserDetailPage from '../pages/admin/UserDetailPage.tsx';
 import CreateUserPage from '../pages/admin/CreateUserPage.tsx';
 import EditUserPage from '../pages/admin/EditUserPage.tsx';
@@ -122,6 +123,7 @@ const appRouter = createBrowserRouter([
         path: 'chair/conferences/:id/edit',
         element: <EditConferencePage />,
       },
+
       {
         path: 'admin/users',
         element: <UserManagementPage />,
