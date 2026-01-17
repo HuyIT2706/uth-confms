@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Add, Delete, People } from '@mui/icons-material';
 import CircularProgress from '@mui/material/CircularProgress';
 import bgUth from '../../assets/bg_uth.svg';
@@ -13,8 +13,8 @@ import { useSearchReviewersQuery } from '../../redux/api/usersApi';
 interface AcceptedReviewer {
     invitationId: string;
     userId: number;
-    acceptedAt?: string;   // sửa: cho phép undefined
-    topics?: string[];     // sửa: cho phép undefined
+    acceptedAt?: string;
+    topics?: string[];
     name?: string;
     email?: string;
 }
@@ -24,7 +24,7 @@ const PCMembersManagementPage = () => {
     const [showInviteForm, setShowInviteForm] = useState(false);
     const [searchTerm, setSearchTerm] = useState<string>('');
 
-    // Debug token
+    // Debug token (giữ nguyên để kiểm tra)
     console.log('Token hiện tại:', localStorage.getItem('token') || localStorage.getItem('accessToken'));
 
     const {
@@ -32,12 +32,19 @@ const PCMembersManagementPage = () => {
         isLoading: isLoadingAccepted,
         error: acceptedError,
         refetch: refetchAccepted,
-    } = useGetAcceptedReviewersQuery(conferenceId!, { skip: !conferenceId });
+    } = useGetAcceptedReviewersQuery(conferenceId!, {
+        skip: !conferenceId,
+        // Các option giúp tự động cập nhật danh sách khi cần
+        refetchOnMountOrArgChange: true,    // Refetch khi component mount hoặc conferenceId thay đổi
+        refetchOnFocus: true,               // Refetch khi tab/window được focus lại (rất quan trọng)
+        refetchOnReconnect: true,           // Refetch khi mạng reconnect
+        pollingInterval: 30000,             // Tự động refetch mỗi 30 giây (có thể tăng lên 60000 nếu muốn ít gọi hơn)
+    });
 
     const [inviteReviewer, { isLoading: isInviting }] = useInviteReviewerMutation();
     const [removeInvitation, { isLoading: isRemoving }] = useRemoveInvitationMutation();
 
-    // QUAN TRỌNG: load reviewers cả khi đã có accepted reviewers (để join lấy tên)
+    // Load reviewers khi cần hiển thị form hoặc đã có accepted reviewers (để join tên)
     const shouldLoadReviewers = showInviteForm || acceptedReviewers.length > 0;
 
     const {
@@ -51,11 +58,28 @@ const PCMembersManagementPage = () => {
 
     const invitedIds = new Set(acceptedReviewers.map((r) => r.userId));
 
-    // Tạo map userId -> user để dùng cho danh sách đã chấp nhận
+    // Map userId → user để hiển thị tên/email cho danh sách đã chấp nhận
     const reviewersById = new Map<number, any>();
     reviewers.forEach((u: any) => {
         reviewersById.set(u.id, u);
     });
+
+    // Tự động refetch khi tab được focus (khi reviewer accept link rồi quay lại tab này)
+    useEffect(() => {
+        const handleFocus = () => {
+            refetchAccepted();
+            console.log('Tab được focus → refetch danh sách reviewer đã chấp nhận');
+        };
+
+        window.addEventListener('focus', handleFocus);
+
+        // Refetch lần đầu khi mount để đảm bảo dữ liệu mới nhất
+        refetchAccepted();
+
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [refetchAccepted]);
 
     const handleInvite = async (userId: number, displayName?: string, email?: string) => {
         if (!conferenceId) {
@@ -74,14 +98,13 @@ const PCMembersManagementPage = () => {
             await inviteReviewer({
                 conferenceId,
                 userId,
-                email,        // gửi email
-                name: displayName, // NEW: gửi luôn tên hiển thị
+                email,
+                name: displayName,
             }).unwrap();
 
             alert('Đã gửi lời mời thành công!');
-            refetchAccepted();
-            // Nếu muốn đóng form sau khi mời thành công, uncomment dòng dưới
-            // setShowInviteForm(false);
+            refetchAccepted(); // Cập nhật danh sách ngay sau khi mời
+            // setShowInviteForm(false); // Uncomment nếu muốn đóng form sau khi mời
         } catch (err: any) {
             const msg = err?.data?.message || 'Lỗi không xác định';
             alert(`Gửi lời mời thất bại: ${msg}`);
@@ -98,7 +121,7 @@ const PCMembersManagementPage = () => {
         try {
             await removeInvitation(invitationId).unwrap();
             alert('Đã thu hồi lời mời thành công!');
-            refetchAccepted();
+            refetchAccepted(); // Cập nhật danh sách ngay sau khi thu hồi
         } catch (err: any) {
             const msg = err.data?.message || 'Lỗi';
             alert(`Thu hồi thất bại: ${msg}`);
@@ -226,10 +249,10 @@ const PCMembersManagementPage = () => {
                                                     <td className="px-4 py-2 text-center">
                                                         <button
                                                             onClick={() => handleInvite(u.id, name, email)}
-                                                            disabled={isInviting || alreadyInPc || !email}  // ← Disable nếu không có email
+                                                            disabled={isInviting || alreadyInPc || !email}
                                                             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${alreadyInPc || !email
-                                                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                                                : 'bg-[#008689] text-white hover:bg-[#006666]'
+                                                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                                                    : 'bg-[#008689] text-white hover:bg-[#006666]'
                                                                 }`}
                                                             title={!email ? 'Không có email để gửi lời mời' : ''}
                                                         >
@@ -277,7 +300,6 @@ const PCMembersManagementPage = () => {
                                                 })
                                                 : 'Chưa xác định';
 
-                                        // Lấy thêm thông tin từ users API nếu backend chưa trả name
                                         const linkedUser = reviewersById.get(member.userId);
                                         const displayName =
                                             member.name ||
@@ -292,12 +314,8 @@ const PCMembersManagementPage = () => {
                                         return (
                                             <tr key={member.invitationId} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                    <div className="font-semibold">
-                                                        {displayName}
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">
-                                                        {displayEmail}
-                                                    </div>
+                                                    <div className="font-semibold">{displayName}</div>
+                                                    <div className="text-sm text-gray-600">{displayEmail}</div>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-700">
                                                     {member.topics?.length > 0 ? (
