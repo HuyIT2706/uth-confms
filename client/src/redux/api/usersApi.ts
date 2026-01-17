@@ -165,6 +165,19 @@ export const usersApi = apiSlice.injectEndpoints({
       query: (id) => `/users/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
+
+    // Search reviewers
+    searchReviewers: builder.query<
+      { message: string; data: User[] },
+      { search?: string; limit?: number }
+    >({
+      query: ({ search = '', limit = 10 }) => ({
+        url: '/users/search',
+        method: 'GET',
+        params: { search, limit },
+      }),
+      providesTags: [{ type: 'User', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -179,5 +192,6 @@ export const {
   useDeleteUserMutation,
   useGetUsersQuery,
   useGetUserByIdQuery,
+  useSearchReviewersQuery,
 } = usersApi;
 

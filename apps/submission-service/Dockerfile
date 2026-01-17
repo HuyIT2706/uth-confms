@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 ENV NODE_OPTIONS=--experimental-global-webcrypto
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
