@@ -8,6 +8,7 @@ import * as handlebars from 'handlebars';
 interface EmailTemplateData {
   [key: string]: any;
   subject?: string;
+  submissions?: { title: string; downloadLink: string }[]; // Cho template reviewer-assignment
 }
 
 @Injectable()
@@ -231,6 +232,23 @@ export class EmailsService {
                     <p style="margin:0 0 12px 0;">
                       Vui lòng đăng nhập vào hệ thống để xem chi tiết bài báo sẽ được giao cho bạn trong topic này.
                     </p>
+                    {{#if submissions.length}}
+                      <p style="margin:0 0 8px 0;">Danh sách bài nộp hiện có trong topic:</p>
+                      <ul style="margin:0 0 16px 20px;list-style-type:disc;">
+                        {{#each submissions}}
+                          <li style="margin-bottom:8px;">
+                            <strong>{{this.title}}</strong><br>
+                            {{#if this.downloadLink}}
+                              <a href="{{this.downloadLink}}" style="color:#1a73e8;text-decoration:none;">Tải bài nộp</a>
+                            {{else}}
+                              <span style="color:#757575;">Chưa có file</span>
+                            {{/if}}
+                          </li>
+                        {{/each}}
+                      </ul>
+                    {{else}}
+                      <p style="margin:0 0 12px 0;color:#757575;">Chưa có bài nộp nào cho topic này.</p>
+                    {{/if}}
                   </td>
                 </tr>
                 <tr>
@@ -282,7 +300,7 @@ export class EmailsService {
    */
   async sendReviewerAssignmentEmail(
     toEmail: string,
-    data: { name: string; conferenceName: string; topic: string },
+    data: { name: string; conferenceName: string; topic: string; submissions?: { title: string; downloadLink: string }[] },
   ) {
     return this.send('reviewer-assignment', [toEmail], {
       ...data,
