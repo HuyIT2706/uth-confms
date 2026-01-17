@@ -59,7 +59,7 @@ export class AssignmentsService {
   }
 
   /**
-   * Kiểm tra xem user có phải là chair của hội nghị này không
+   * Kiểm tra xem xem user có phải là chair của hội nghị này không
    */
   async canChairSuggest(userId: number, conferenceId: string): Promise<boolean> {
     try {
@@ -248,6 +248,7 @@ export class AssignmentsService {
     reviewer: { email?: string; name?: string },
     topic: string,
     conferenceName: string,
+    submissions: { title: string; downloadLink: string }[] = [],
   ) {
     if (!reviewer.email) {
       this.logger.warn(
@@ -263,6 +264,7 @@ export class AssignmentsService {
         name,
         conferenceName,
         topic,
+        submissions,
       });
       this.logger.log(
         `[ASSIGN] Đã gửi email phân công reviewer đến ${reviewer.email} cho topic "${topic}" (${conferenceName})`,
@@ -283,6 +285,9 @@ export class AssignmentsService {
     if (conference.chairId !== chairId) throw new ForbiddenException('Only chair can assign');
 
     const reviewers = await this.getReviewers(dto.conferenceId);
+
+    // Lấy danh sách submissions cho topic này (chỉ gọi 1 lần)
+    const submissions = await this.submissionsClient.getSubmissionsByTopic(dto.conferenceId, dto.topic);
 
     const assignments: Assignment[] = [];
 
@@ -322,7 +327,7 @@ export class AssignmentsService {
         const saved = await this.assignmentRepo.save(existingSuggested);
         assignments.push(saved);
 
-        await this.notifyReviewerAssigned(reviewer, dto.topic, conference.name);
+        await this.notifyReviewerAssigned(reviewer, dto.topic, conference.name, submissions);
         continue;
       }
 
@@ -341,7 +346,7 @@ export class AssignmentsService {
       const savedNew = await this.assignmentRepo.save(assignment);
       assignments.push(savedNew);
 
-      await this.notifyReviewerAssigned(reviewer, dto.topic, conference.name);
+      await this.notifyReviewerAssigned(reviewer, dto.topic, conference.name, submissions);
     }
 
     await this.auditService.log('ASSIGN_REVIEWERS_TO_TOPIC', chairId, 'Topic', dto.topic);
