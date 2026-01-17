@@ -31,12 +31,17 @@ export class InvitationsService {
     private readonly usersClient: UsersClient,
     private readonly auditService: AuditService,
     private readonly httpService: HttpService,
-  ) { }
+  ) {}
 
-  private async notifyReviewService(invitation: Invitation, conference: any, userId: number) {
+  private async notifyReviewService(
+    invitation: Invitation,
+    conference: any,
+    userId: number,
+  ) {
     try {
       // Trong Docker network, review-service chạy ở port 3000 (không phải 3004)
-      const reviewBase = process.env.REVIEW_SERVICE_URL || 'http://review-service:3000/api';
+      const reviewBase =
+        process.env.REVIEW_SERVICE_URL || 'http://review-service:3000/api';
       const notifyUrl = `${reviewBase}/reviewer/invitations`;
       const payload = {
         externalInvitationId: invitation.id,
@@ -44,8 +49,12 @@ export class InvitationsService {
         conferenceName: conference.name,
         acronym: conference.acronym,
         conferenceDescription: conference.description,
-        startDate: conference.startDate ? new Date(conference.startDate).toISOString().split('T')[0] : undefined,
-        endDate: conference.endDate ? new Date(conference.endDate).toISOString().split('T')[0] : undefined,
+        startDate: conference.startDate
+          ? new Date(conference.startDate).toISOString().split('T')[0]
+          : undefined,
+        endDate: conference.endDate
+          ? new Date(conference.endDate).toISOString().split('T')[0]
+          : undefined,
         topics: conference.topics || [],
         deadlines: conference.deadlines || {},
         reviewerId: userId,
@@ -54,27 +63,41 @@ export class InvitationsService {
         raw: { conference, invitation },
       };
 
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
       const serviceSecret = process.env.REVIEWER_SERVICE_SECRET;
       if (serviceSecret) {
         headers['x-service-secret'] = serviceSecret;
       }
 
-      this.logger.log(`Notifying review-service about invitation ${invitation.id} to reviewer ${userId} at ${notifyUrl}`);
-      
+      this.logger.log(
+        `Notifying review-service about invitation ${invitation.id} to reviewer ${userId} at ${notifyUrl}`,
+      );
+
       // fire-and-forget, don't block chair action on notify failure
       firstValueFrom(this.httpService.post(notifyUrl, payload, { headers }))
-        .then(response => {
-          this.logger.log(`Successfully notified review-service about invitation ${invitation.id}: ${JSON.stringify(response.data)}`);
+        .then((response) => {
+          this.logger.log(
+            `Successfully notified review-service about invitation ${invitation.id}: ${JSON.stringify(response.data)}`,
+          );
         })
-        .catch(err => {
-          this.logger.error(`Failed to notify review-service about invitation ${invitation.id}: ${err.message}`, err.stack);
+        .catch((err) => {
+          this.logger.error(
+            `Failed to notify review-service about invitation ${invitation.id}: ${err.message}`,
+            err.stack,
+          );
           if (err.response) {
-            this.logger.error(`Response status: ${err.response.status}, data: ${JSON.stringify(err.response.data)}`);
+            this.logger.error(
+              `Response status: ${err.response.status}, data: ${JSON.stringify(err.response.data)}`,
+            );
           }
         });
     } catch (err) {
-      this.logger.error(`Exception notifying review-service: ${err.message}`, err.stack);
+      this.logger.error(
+        `Exception notifying review-service: ${err.message}`,
+        err.stack,
+      );
     }
   }
 
@@ -87,7 +110,8 @@ export class InvitationsService {
   ) {
     const conference = await this.conferencesService.findOne(conferenceId);
     if (!conference) throw new NotFoundException('Conference not found');
-    if (conference.chairId !== chairId) throw new ForbiddenException('Only chair can invite');
+    if (conference.chairId !== chairId)
+      throw new ForbiddenException('Only chair can invite');
 
     // Lấy lời mời mới nhất của user này trong hội nghị này
     const existing = await this.invitationRepo.findOne({
@@ -108,12 +132,20 @@ export class InvitationsService {
         await this.invitationRepo.save(existing);
         // Notify review-service about the re-invitation
         await this.notifyReviewService(existing, conference, userId);
-        await this.auditService.log('RE_INVITE_REVIEWER', chairId, 'Invitation', existing.id, { userId });
+        await this.auditService.log(
+          'RE_INVITE_REVIEWER',
+          chairId,
+          'Invitation',
+          existing.id,
+          { userId },
+        );
         return { message: 'Re-invitation sent', invitationId: existing.id };
       }
 
       if (existing.status === InvitationStatus.ACCEPTED) {
-        throw new BadRequestException('User has already accepted this invitation');
+        throw new BadRequestException(
+          'User has already accepted this invitation',
+        );
       }
 
       // If previously processed (accepted/declined), allow chair to re-invite by resetting to PENDING.
@@ -133,8 +165,17 @@ export class InvitationsService {
       await this.invitationRepo.save(existing);
       // Notify review-service about the re-invitation
       await this.notifyReviewService(existing, conference, userId);
-      await this.auditService.log('RE_INVITE_REVIEWER', chairId, 'Invitation', existing.id, { userId, reset: true });
-      return { message: 'Re-invitation sent (reset)', invitationId: existing.id };
+      await this.auditService.log(
+        'RE_INVITE_REVIEWER',
+        chairId,
+        'Invitation',
+        existing.id,
+        { userId, reset: true },
+      );
+      return {
+        message: 'Re-invitation sent (reset)',
+        invitationId: existing.id,
+      };
     }
 
     const invitation = this.invitationRepo.create({
@@ -154,9 +195,13 @@ export class InvitationsService {
     if (!userEmail) {
       try {
         userEmail = await this.usersClient.getUserEmail(userId);
-        this.logger.log(`[INVITE] Lấy email từ identity-service thành công cho user ${userId}: ${userEmail}`);
+        this.logger.log(
+          `[INVITE] Lấy email từ identity-service thành công cho user ${userId}: ${userEmail}`,
+        );
       } catch (err) {
-        this.logger.warn(`[INVITE] Không lấy được email từ identity-service cho user ${userId}: ${err.message}`);
+        this.logger.warn(
+          `[INVITE] Không lấy được email từ identity-service cho user ${userId}: ${err.message}`,
+        );
         userEmail = undefined;
       }
     }
@@ -183,22 +228,36 @@ export class InvitationsService {
           invitationId: saved.id,
           conferenceId,
         });
-        this.logger.log(`[INVITE] Đã gửi email mời reviewer thành công đến ${userEmail} (invitation ${saved.id})`);
+        this.logger.log(
+          `[INVITE] Đã gửi email mời reviewer thành công đến ${userEmail} (invitation ${saved.id})`,
+        );
       } catch (emailErr) {
-        this.logger.error(`[INVITE] Lỗi gửi email mời đến ${userEmail}: ${emailErr.message}`);
+        this.logger.error(
+          `[INVITE] Lỗi gửi email mời đến ${userEmail}: ${emailErr.message}`,
+        );
       }
     } else {
-      this.logger.warn(`[INVITE] Không gửi email mời cho user ${userId} vì không có email hợp lệ`);
+      this.logger.warn(
+        `[INVITE] Không gửi email mời cho user ${userId} vì không có email hợp lệ`,
+      );
     }
 
-    await this.auditService.log('INVITE_REVIEWER', chairId, 'Invitation', saved.id, { userId, conferenceId });
+    await this.auditService.log(
+      'INVITE_REVIEWER',
+      chairId,
+      'Invitation',
+      saved.id,
+      { userId, conferenceId },
+    );
 
     return { message: 'Invitation sent successfully', invitationId: saved.id };
   }
 
   async acceptInvitation(invitationId: string, userId: number) {
     if (userId === undefined || userId === null) {
-      throw new ForbiddenException('User context is required to accept an invitation');
+      throw new ForbiddenException(
+        'User context is required to accept an invitation',
+      );
     }
 
     const invitation = await this.invitationRepo.findOne({
@@ -208,7 +267,8 @@ export class InvitationsService {
     if (!invitation) throw new NotFoundException('Invitation not found');
 
     const actingUserId = userId ?? invitation.userId;
-    if (invitation.userId !== actingUserId) throw new ForbiddenException('Not your invitation');
+    if (invitation.userId !== actingUserId)
+      throw new ForbiddenException('Not your invitation');
     // Allow toggling: if already accepted, return success (idempotent).
     // If previously declined, allow moving back to ACCEPTED.
     if (invitation.status === InvitationStatus.ACCEPTED) {
@@ -225,24 +285,37 @@ export class InvitationsService {
       await this.usersClient.addRole(invitation.userId, 'REVIEWER');
       this.logger.log(`Role REVIEWER added to user ${invitation.userId}`);
     } catch (err) {
-      this.logger.error(`Failed to add REVIEWER role to user ${invitation.userId}:`, err);
+      this.logger.error(
+        `Failed to add REVIEWER role to user ${invitation.userId}:`,
+        err,
+      );
     }
 
-    await this.auditService.log('ACCEPT_INVITATION', userId, 'Invitation', invitationId);
+    await this.auditService.log(
+      'ACCEPT_INVITATION',
+      userId,
+      'Invitation',
+      invitationId,
+    );
 
     return { message: 'Accepted successfully. You are now a reviewer!' };
   }
 
   async declineInvitation(invitationId: string, userId: number) {
     if (userId === undefined || userId === null) {
-      throw new ForbiddenException('User context is required to decline an invitation');
+      throw new ForbiddenException(
+        'User context is required to decline an invitation',
+      );
     }
 
-    const invitation = await this.invitationRepo.findOne({ where: { id: invitationId } });
+    const invitation = await this.invitationRepo.findOne({
+      where: { id: invitationId },
+    });
     if (!invitation) throw new NotFoundException('Invitation not found');
 
     const actingUserId = userId ?? invitation.userId;
-    if (invitation.userId !== actingUserId) throw new ForbiddenException('Not your invitation');
+    if (invitation.userId !== actingUserId)
+      throw new ForbiddenException('Not your invitation');
     // Allow toggling: if already declined, return success (idempotent).
     // If previously accepted, allow moving to DECLINED (note: we intentionally
     // do not remove REVIEWER role here to avoid unexpected role changes).
@@ -255,7 +328,12 @@ export class InvitationsService {
     invitation.acceptedAt = null;
     await this.invitationRepo.save(invitation);
 
-    await this.auditService.log('DECLINE_INVITATION', userId, 'Invitation', invitationId);
+    await this.auditService.log(
+      'DECLINE_INVITATION',
+      userId,
+      'Invitation',
+      invitationId,
+    );
 
     return { message: 'Invitation declined' };
   }
@@ -265,20 +343,23 @@ export class InvitationsService {
     if (!conference) throw new NotFoundException('Conference not found');
 
     // If caller provided chairId, enforce chair-only access; otherwise allow internal usage
-    if (chairId != null && conference.chairId !== chairId) throw new ForbiddenException('Only chair can view');
+    if (chairId != null && conference.chairId !== chairId)
+      throw new ForbiddenException('Only chair can view');
 
     const invitations = await this.invitationRepo.find({
       where: { conferenceId, status: InvitationStatus.ACCEPTED },
       order: { acceptedAt: 'DESC' },
     });
 
-    return invitations.map(i => ({
+    return invitations.map((i) => ({
       invitationId: i.id,
       userId: i.userId,
       acceptedAt: i.acceptedAt,
       topics: i.topics,
       // Fallback: nếu chưa có reviewerName thì lấy phần trước @ của email
-      name: i.reviewerName ?? (i.reviewerEmail ? i.reviewerEmail.split('@')[0] : undefined),
+      name:
+        i.reviewerName ??
+        (i.reviewerEmail ? i.reviewerEmail.split('@')[0] : undefined),
       email: i.reviewerEmail,
     }));
   }
@@ -297,37 +378,56 @@ export class InvitationsService {
       relations: ['conference'],
     });
     if (!invitation) throw new NotFoundException('Invitation not found');
-    if (invitation.conference.chairId !== chairId) throw new ForbiddenException('Only chair can remove');
+    if (invitation.conference.chairId !== chairId)
+      throw new ForbiddenException('Only chair can remove');
 
     await this.invitationRepo.remove(invitation);
-    await this.auditService.log('REMOVE_INVITATION', chairId, 'Invitation', invitationId);
+    await this.auditService.log(
+      'REMOVE_INVITATION',
+      chairId,
+      'Invitation',
+      invitationId,
+    );
 
     // Notify review-service về việc xóa invitation
     try {
-      const reviewBase = process.env.REVIEW_SERVICE_URL || 'http://review-service:3000/api';
+      const reviewBase =
+        process.env.REVIEW_SERVICE_URL || 'http://review-service:3000/api';
       const notifyUrl = `${reviewBase}/reviewer/invitations/external/${invitationId}`;
-      
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
       const serviceSecret = process.env.REVIEWER_SERVICE_SECRET;
       if (serviceSecret) {
         headers['x-service-secret'] = serviceSecret;
       }
 
-      this.logger.log(`Notifying review-service about invitation deletion ${invitationId} at ${notifyUrl}`);
-      
+      this.logger.log(
+        `Notifying review-service about invitation deletion ${invitationId} at ${notifyUrl}`,
+      );
+
       // fire-and-forget, don't block chair action on notify failure
       firstValueFrom(this.httpService.delete(notifyUrl, { headers }))
-        .then(response => {
-          this.logger.log(`Successfully notified review-service about invitation deletion ${invitationId}: ${JSON.stringify(response.data)}`);
+        .then((response) => {
+          this.logger.log(
+            `Successfully notified review-service about invitation deletion ${invitationId}: ${JSON.stringify(response.data)}`,
+          );
         })
-        .catch(err => {
-          this.logger.warn(`Failed to notify review-service about invitation deletion ${invitationId}: ${err.message}`);
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to notify review-service about invitation deletion ${invitationId}: ${err.message}`,
+          );
           if (err.response) {
-            this.logger.warn(`Response status: ${err.response.status}, data: ${JSON.stringify(err.response.data)}`);
+            this.logger.warn(
+              `Response status: ${err.response.status}, data: ${JSON.stringify(err.response.data)}`,
+            );
           }
         });
     } catch (err: any) {
-      this.logger.warn(`Exception notifying review-service about deletion: ${err.message}`);
+      this.logger.warn(
+        `Exception notifying review-service about deletion: ${err.message}`,
+      );
     }
 
     return { message: 'Invitation removed' };
@@ -344,11 +444,15 @@ export class InvitationsService {
 
     const actingUserId = userId ?? invitation.userId;
     if (invitation.userId !== actingUserId) {
-      throw new ForbiddenException('You can only update your own invitation topics');
+      throw new ForbiddenException(
+        'You can only update your own invitation topics',
+      );
     }
 
     if (invitation.status !== InvitationStatus.ACCEPTED) {
-      throw new BadRequestException('Can only update topics after accepting the invitation');
+      throw new BadRequestException(
+        'Can only update topics after accepting the invitation',
+      );
     }
 
     if (!Array.isArray(topics)) {
@@ -359,17 +463,34 @@ export class InvitationsService {
       throw new BadRequestException('Maximum 20 topics allowed');
     }
 
-    const uniqueTopics = [...new Set(topics.map(t => t.trim()).filter(t => t.length > 0))];
+    const uniqueTopics = [
+      ...new Set(topics.map((t) => t.trim()).filter((t) => t.length > 0)),
+    ];
 
     invitation.topics = uniqueTopics;
     await this.invitationRepo.save(invitation);
 
-    await this.auditService.log('UPDATE_INVITATION_TOPICS', actingUserId, 'Invitation', invitationId, { topics: uniqueTopics });
+    await this.auditService.log(
+      'UPDATE_INVITATION_TOPICS',
+      actingUserId,
+      'Invitation',
+      invitationId,
+      { topics: uniqueTopics },
+    );
 
-    return { message: 'Topics updated successfully', invitationId, topics: uniqueTopics };
+    return {
+      message: 'Topics updated successfully',
+      invitationId,
+      topics: uniqueTopics,
+    };
   }
 
-  async updateCoi(invitationId: string, coiUserIds: number[], coiInstitutions: string[], userId?: number) {
+  async updateCoi(
+    invitationId: string,
+    coiUserIds: number[],
+    coiInstitutions: string[],
+    userId?: number,
+  ) {
     const invitation = await this.invitationRepo.findOne({
       where: { id: invitationId },
     });
@@ -380,32 +501,54 @@ export class InvitationsService {
 
     const actingUserId = userId ?? invitation.userId;
     if (invitation.userId !== actingUserId) {
-      throw new ForbiddenException('You can only update your own invitation COI');
+      throw new ForbiddenException(
+        'You can only update your own invitation COI',
+      );
     }
 
     if (invitation.status !== InvitationStatus.ACCEPTED) {
-      throw new BadRequestException('Can only update COI after accepting the invitation');
+      throw new BadRequestException(
+        'Can only update COI after accepting the invitation',
+      );
     }
 
-    if (!Array.isArray(coiUserIds) || coiUserIds.some(id => !Number.isInteger(id))) {
+    if (
+      !Array.isArray(coiUserIds) ||
+      coiUserIds.some((id) => !Number.isInteger(id))
+    ) {
       throw new BadRequestException('coiUserIds must be an array of integers');
     }
 
-    if (!Array.isArray(coiInstitutions) || coiInstitutions.some(inst => typeof inst !== 'string' || inst.trim().length === 0)) {
-      throw new BadRequestException('coiInstitutions must be an array of non-empty strings');
+    if (
+      !Array.isArray(coiInstitutions) ||
+      coiInstitutions.some(
+        (inst) => typeof inst !== 'string' || inst.trim().length === 0,
+      )
+    ) {
+      throw new BadRequestException(
+        'coiInstitutions must be an array of non-empty strings',
+      );
     }
 
     const uniqueCoiUserIds = [...new Set(coiUserIds)];
-    const uniqueCoiInstitutions = [...new Set(coiInstitutions.map(inst => inst.trim()))];
+    const uniqueCoiInstitutions = [
+      ...new Set(coiInstitutions.map((inst) => inst.trim())),
+    ];
 
     invitation.coiUserIds = uniqueCoiUserIds;
     invitation.coiInstitutions = uniqueCoiInstitutions;
     await this.invitationRepo.save(invitation);
 
-    await this.auditService.log('UPDATE_INVITATION_COI', actingUserId, 'Invitation', invitationId, {
-      coiUserIds: uniqueCoiUserIds,
-      coiInstitutions: uniqueCoiInstitutions,
-    });
+    await this.auditService.log(
+      'UPDATE_INVITATION_COI',
+      actingUserId,
+      'Invitation',
+      invitationId,
+      {
+        coiUserIds: uniqueCoiUserIds,
+        coiInstitutions: uniqueCoiInstitutions,
+      },
+    );
 
     return {
       message: 'COI updated successfully',

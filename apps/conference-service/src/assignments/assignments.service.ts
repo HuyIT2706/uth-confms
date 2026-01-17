@@ -295,7 +295,6 @@ export class AssignmentsService {
         throw new BadRequestException(`Invalid reviewer ID: ${reviewerId}`);
       }
 
-<<<<<<< HEAD
       // 1) Nếu đã có assignment ASSIGNED cho topic này → bỏ qua, không báo lỗi, không gửi mail nữa
       const existingAssigned = await this.assignmentRepo.findOne({
         where: {
