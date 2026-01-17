@@ -65,6 +65,19 @@ export class SubmissionServiceService implements OnModuleInit {
     const { page, limit, status, conferenceId, createdFrom, createdTo, search, sortBy, order } = query;
 
     const qb = this.subRepo.createQueryBuilder('submission')
+      .select([
+        'submission.id',
+        'submission.conference_id',
+        'submission.title',
+        'submission.abstract',
+        'submission.topic',
+        'submission.status',
+        'submission.created_by',
+        'submission.created_at',
+        'submission.updated_at',
+        'submission.withdrawn_at',
+        'submission.camera_ready_submitted_at'
+      ])
       .leftJoinAndSelect('submission.authors', 'authors')
       .leftJoinAndSelect('submission.files', 'files');
 
@@ -97,6 +110,13 @@ export class SubmissionServiceService implements OnModuleInit {
     if (search) {
       qb.andWhere('submission.title ILIKE :search', {
         search: `%${search}%`
+      });
+    }
+
+    // Filter by topic
+    if (query.topic) {
+      qb.andWhere('submission.topic = :topic', {
+        topic: query.topic
       });
     }
 

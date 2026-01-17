@@ -77,6 +77,9 @@ services:
       - '3003:3003'
     env_file:
       - ./apps/submission-service/.env
+    environment:
+      - CONFERENCE_SERVICE_URL=http://conference-service:3002/api
+      - REVIEW_SERVICE_URL=http://review-service:3000/api
     depends_on:
       - postgres
     networks:

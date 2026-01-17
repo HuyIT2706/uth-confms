@@ -52,14 +52,38 @@ export class ConferenceClient {
     async getConference(conferenceId: string) {
         try {
             // Call internal endpoint - NO AUTH REQUIRED
-            const response = await axios.get(
-                `${this.baseUrl}/internal/conferences/${conferenceId}/topics`
-            );
-            return response.data;
-        } catch (error) {
-            if (axios.isAxiosError(error) && error.response?.status === 404) {
-                throw new BadRequestException('Không tìm thấy hội nghị');
+            const url = `${this.baseUrl}/internal/conferences/${conferenceId}/topics`;
+            console.log(`[ConferenceClient] Requesting topics from: ${url}`);
+
+            const response = await axios.get(url);
+            console.log(`[ConferenceClient] Response:`, JSON.stringify(response.data));
+
+            // Handle response structure: { success, conferenceId, conferenceName, topics }
+            if (!response.data.success) {
+                throw new BadRequestException(response.data.message || 'Không tìm thấy hội nghị');
             }
+
+            return {
+                id: response.data.conferenceId,
+                name: response.data.conferenceName,
+                topics: response.data.topics || []
+            };
+        } catch (error) {
+            console.error('[ConferenceClient] Full error:', error);
+            if (axios.isAxiosError(error)) {
+                console.error('[ConferenceClient] Axios error details:', {
+                    status: error.response?.status,
+                    data: error.response?.data,
+                    message: error.message
+                });
+                if (error.response?.status === 404) {
+                    throw new BadRequestException('Không tìm thấy hội nghị');
+                }
+            }
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('[ConferenceClient] Error getting conference:', error.message);
             throw new InternalServerErrorException('Không thể lấy thông tin hội nghị');
         }
     }

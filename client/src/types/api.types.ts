@@ -178,6 +178,7 @@ export interface QuerySubmissionsDto extends PaginationParams {
   status?: SubmissionStatus;
   authorId?: number;
   search?: string;
+  topic?: string;
 }
 
 // Review Types
