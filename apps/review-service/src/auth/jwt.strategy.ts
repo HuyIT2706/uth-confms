@@ -3,27 +3,28 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
-export interface JwtPayload {
-  sub: number | string;
-  email: string;
-  roles: string[];
-}
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
-    const publicKey = configService.get<string>('IDENTITY_JWT_PUBLIC_KEY');
-    const secret = configService.get<string>('JWT_ACCESS_SECRET');
-    const algo = configService.get<string>('JWT_ALGORITHM');
+  constructor(private config: ConfigService) {
+    const secret =
+      config.get<string>('JWT_ACCESS_SECRET') ||
+      process.env.JWT_ACCESS_SECRET ||
+      process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT access secret is not defined');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: publicKey || secret || 'access_secret',
-      algorithms: algo ? ([algo] as any) : undefined,
+      secretOrKey: secret,
     });
   }
 
-  async validate(payload: JwtPayload) {
-    return payload;
+  async validate(payload: any) {
+    return { 
+      sub: payload.sub, 
+      userId: payload.sub, 
+      id: payload.sub,
+      email: payload.email, 
+      roles: payload.roles || [] 
+    };
   }
 }

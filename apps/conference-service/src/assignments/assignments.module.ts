@@ -3,23 +3,25 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
 
 import { Assignment } from './entities/assignment.entity';
-import { Invitation } from '../invitations/entities/invitation.entity'; // NEW
+import { Invitation } from '../invitations/entities/invitation.entity';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsController } from './assignments.controller';
 
 import { ConferencesModule } from '../conferences/conferences.module';
 import { AuditModule } from '../audit/audit.module';
-import { UsersModule } from '../users/users.module'; // Nếu có thì giữ, không thì bỏ
+import { UsersModule } from '../users/users.module';
 import { SubmissionsClient } from '../integrations/submissions.client';
 import { AiModule } from '../ai/ai.module';
-import { EmailsModule } from '../emails/emails.module'; // NEW
+import { EmailsModule } from '../emails/emails.module';
+import { InvitationsModule } from '../invitations/invitations.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Assignment, Invitation]), // UPDATED
+    TypeOrmModule.forFeature([Assignment, Invitation]),
     ConferencesModule,
     AuditModule,
-    UsersModule, // Nếu không tồn tại thì xóa dòng này
+    UsersModule,
+    InvitationsModule,
     HttpModule,
     AiModule,
     EmailsModule,

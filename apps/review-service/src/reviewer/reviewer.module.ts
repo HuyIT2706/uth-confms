@@ -1,29 +1,18 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HttpModule } from '@nestjs/axios';
-import { ConfigModule } from '@nestjs/config';
-
-import { Assignment } from './entities/assignment.entity';
-import { Review } from './entities/review.entity';
-import { ReviewEditHistory } from './entities/review-edit-history.entity';
-import { DiscussionMessage } from './entities/discussion.entity';
-
 import { ReviewerService } from './reviewer.service';
 import { ReviewerController } from './reviewer.controller';
-// → XÓA import ReviewerInternalController
+import { ReviewerAssignmentsController } from './reviewer-assignments.controller';
+import { ReviewerAssignmentsInternalController } from './reviewer-assignments-internal.controller';
+import { Invitation } from './entities/invitation.entity';
+import { ReviewerAssignment } from './entities/reviewer-assignment.entity';
+import { Review } from './entities/review.entity';
+import { ReviewHistory } from './entities/review-history.entity';
 
 @Module({
-  imports: [
-    ConfigModule,
-    HttpModule,
-    TypeOrmModule.forFeature([
-      Assignment,
-      Review,
-      ReviewEditHistory,
-      DiscussionMessage,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([Invitation, ReviewerAssignment, Review, ReviewHistory])],
+  controllers: [ReviewerController, ReviewerAssignmentsController, ReviewerAssignmentsInternalController],
   providers: [ReviewerService],
-  controllers: [ReviewerController], // → Chỉ giữ lại cái cần thiết
+  exports: [ReviewerService],
 })
 export class ReviewerModule { }

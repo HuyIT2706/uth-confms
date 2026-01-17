@@ -1,0 +1,136 @@
+@startuml
+' UTH-ConfMS - Comprehensive Use Case Diagram (UML 2.5 compliant)
+' Services included: Identity, Conference, Review, Submission
+' Actors: Author, Reviewer, Chair, Admin, System (external integrations)
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #FEFEFE
+  BorderColor #555555
+}
+
+actor Author
+actor Reviewer
+actor Chair
+actor Admin
+actor "External System" as External
+
+package "Identity Service" {
+  usecase "Register / Sign Up" as IS_Register
+  usecase "Verify Email" as IS_VerifyEmail
+  usecase "Login / Obtain Tokens" as IS_Login
+  usecase "Refresh Access Token" as IS_Refresh
+  usecase "Logout / Revoke Token" as IS_Logout
+  usecase "Forgot Password / Send Reset Code" as IS_ForgotPassword
+  usecase "Verify Reset Code" as IS_VerifyReset
+  usecase "Reset Password" as IS_ResetPassword
+  usecase "Get / Update Profile" as IS_Profile
+  usecase "Admin: Create / Delete / Update Users" as IS_AdminUsers
+}
+
+package "Submission Service" {
+  usecase "Create Submission (upload files)" as SS_CreateSubmission
+  usecase "Update Submission Metadata" as SS_UpdateMetadata
+  usecase "Get Submission Details" as SS_GetSubmission
+  usecase "Download Submission File" as SS_DownloadFile
+  usecase "List Submissions" as SS_ListSubmissions
+}
+
+package "Conference Service" {
+  usecase "Create Conference" as CS_CreateConference
+  usecase "Update Conference Status" as CS_UpdateStatus
+  usecase "Manage Topics" as CS_ManageTopics
+  usecase "Invite Reviewers" as CS_InviteReviewers
+  usecase "Accept / Decline Invitation" as CS_AcceptDeclineInvitation
+  usecase "Manual Assign Reviewers" as CS_AssignReviewers
+  usecase "List Assignments by Reviewer" as CS_ListAssignments
+  usecase "Publish Assignment Notifications" as CS_NotifyAssignments
+}
+
+package "Review Service" {
+  usecase "List Assignments (for reviewer)" as RS_ListAssignments
+  usecase "Accept / Reject Assignment" as RS_AcceptRejectAssignment
+  usecase "Start / Save Review" as RS_SaveReview
+  usecase "Submit Final Review" as RS_SubmitFinal
+  usecase "View Review History" as RS_ReviewHistory
+  usecase "Discussion (comments)" as RS_Discussion
+  usecase "Admin / Chair: View Reviews & Decisions" as RS_AdminViews
+}
+
+' Actor associations
+Author --> IS_Register
+Author --> IS_VerifyEmail
+Author --> IS_Login
+Author --> IS_ForgotPassword
+Author --> IS_ResetPassword
+Author --> IS_Profile
+Author --> SS_CreateSubmission
+Author --> SS_UpdateMetadata
+Author --> SS_GetSubmission
+Author --> SS_DownloadFile
+Author --> SS_ListSubmissions
+
+Reviewer --> IS_Login
+Reviewer --> IS_Profile
+Reviewer --> RS_ListAssignments
+Reviewer --> RS_AcceptRejectAssignment
+Reviewer --> RS_SaveReview
+Reviewer --> RS_SubmitFinal
+Reviewer --> RS_Discussion
+Reviewer --> SS_GetSubmission
+Reviewer --> SS_DownloadFile
+
+Chair --> IS_Login
+Chair --> IS_Profile
+Chair --> CS_CreateConference
+Chair --> CS_ManageTopics
+Chair --> CS_InviteReviewers
+Chair --> CS_AssignReviewers
+Chair --> RS_AdminViews
+Chair --> SS_ListSubmissions
+
+Admin --> IS_AdminUsers
+Admin --> CS_CreateConference
+Admin --> CS_UpdateStatus
+Admin --> SS_ListSubmissions
+
+External --> IS_Login
+External --> SS_DownloadFile
+External --> CS_NotifyAssignments
+
+' Inter-service interactions shown as system-to-system actors (for clarity)
+' Conference publishes notifications which Review service consumes
+CS_NotifyAssignments ..> RS_ListAssignments : "POST /api/internal/assignments"
+CS_ListAssignments ..> RS_ListAssignments : "GET /api/internal/assignments/reviewer/{id}"
+CS_AssignReviewers ..> CS_NotifyAssignments
+
+' Review service requests submission files via Submission service
+RS_ListAssignments ..> SS_GetSubmission : "proxy/submission-info"
+RS_SaveReview ..> SS_GetSubmission : "(optional) fetch metadata"
+
+' Identity service provides authentication for all services
+IS_Login ..> RS_ListAssignments : "JWT / Authorization"
+IS_Login ..> SS_CreateSubmission : "JWT / Authorization"
+IS_Login ..> CS_CreateConference : "JWT / Authorization"
+
+' Notes and legend
+legend right
+  |= Symbol |= Meaning |
+  | (actor) | External human or system role |
+  | (usecase oval) | System behavior / endpoint |
+  | (package) | Microservice boundary |
+endlegend
+
+note left of IS_Register
+  Identity Service exposes endpoints documented in Swagger
+end note
+
+note left of CS_CreateConference
+  Conference Service manages conference lifecycle, invitations and assignments
+end note
+
+note left of RS_ListAssignments
+  Review Service persists reviewer-facing assignments and final reviews
+end note
+
+@enduml

@@ -12,18 +12,19 @@ import { EmailService } from '../common/services/email.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, PasswordResetToken, EmailVerificationToken]),
+    TypeOrmModule.forFeature([
+      User,
+      Role,
+      PasswordResetToken,
+      EmailVerificationToken,
+    ]),
     HttpModule.register({
       timeout: 10000,
       maxRedirects: 5,
     }),
   ],
   controllers: [UsersController],
-  providers: [
-    UsersService, 
-    RolesGuard, 
-    EmailService,
-  ],
+  providers: [UsersService, RolesGuard, EmailService],
   exports: [UsersService],
 })
 export class UsersModule {}

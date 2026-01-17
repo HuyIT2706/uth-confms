@@ -21,9 +21,13 @@ export class InvitationsInternalController {
   @ApiOperation({ summary: 'Internal: Chấp nhận lời mời tham gia phản biện' })
   @ApiParam({ name: 'id', description: 'ID của lời mời', type: String })
   @ApiResponse({ status: 200, description: 'Đã chấp nhận lời mời, role REVIEWER đã được thêm' })
-  async acceptInvitation(@Param('id') id: string, @Body() body: { userId: number }) {
-    // Gọi service với userId bắt buộc, KHÔNG fallback
-    return this.invitationsService.acceptInvitation(id, body.userId);
+  async acceptInvitation(@Param('id') id: string, @Body() body: { userId: number; topics?: string[] }) {
+    const result = await this.invitationsService.acceptInvitation(id, body.userId);
+    // Nếu có topics từ review-service, cập nhật topics
+    if (body.topics && Array.isArray(body.topics) && body.topics.length > 0) {
+      await this.invitationsService.updateTopics(id, body.topics, body.userId);
+    }
+    return result;
   }
 
   @Patch(':id/decline')
@@ -32,5 +36,26 @@ export class InvitationsInternalController {
   @ApiResponse({ status: 200, description: 'Đã từ chối lời mời' })
   async declineInvitation(@Param('id') id: string, @Body() body: { userId: number }) {
     return this.invitationsService.declineInvitation(id, body.userId);
+  }
+
+  @Patch(':id/topics')
+  @ApiOperation({ summary: 'Internal: Cập nhật topics cho lời mời (bypass role guard)' })
+  @ApiParam({ name: 'id', description: 'ID của lời mời', type: String })
+  @ApiResponse({ status: 200, description: 'Đã cập nhật topics' })
+  async internalUpdateTopics(@Param('id') id: string, @Body() body: { userId?: number; topics?: string[] }) {
+    const userId = body?.userId;
+    const topics = body?.topics || [];
+    return this.invitationsService.updateTopics(id, topics, userId);
+  }
+
+  @Patch(':id/coi')
+  @ApiOperation({ summary: 'Internal: Cập nhật COI cho lời mời (bypass role guard)' })
+  @ApiParam({ name: 'id', description: 'ID của lời mời', type: String })
+  @ApiResponse({ status: 200, description: 'Đã cập nhật COI' })
+  async internalUpdateCoi(@Param('id') id: string, @Body() body: { userId?: number; coiUserIds?: number[]; coiInstitutions?: string[] }) {
+    const userId = body?.userId;
+    const coiUserIds = body?.coiUserIds || [];
+    const coiInstitutions = body?.coiInstitutions || [];
+    return this.invitationsService.updateCoi(id, coiUserIds, coiInstitutions, userId);
   }
 }

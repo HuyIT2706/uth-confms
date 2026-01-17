@@ -1,35 +1,42 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, OneToMany } from 'typeorm';
+import { ReviewerAssignment } from './reviewer-assignment.entity';
+import { ReviewHistory } from './review-history.entity';
 
-@Entity('reviews')
+@Entity({ name: 'reviews' })
 export class Review {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+    @PrimaryGeneratedColumn('uuid')
+    id!: string;
 
-  @Column()
-  assignmentId: number;
+    // Link to the assignment (which contains reviewerId and submissionId)
+    @Column({ type: 'varchar' })
+    conferenceAssignmentId!: string;
 
-  @Column()
-  reviewerId: number;
+    // FK relation for easier joins if needed, logic primarily uses conferenceAssignmentId
+    @OneToOne(() => ReviewerAssignment)
+    @JoinColumn({ name: 'conferenceAssignmentId', referencedColumnName: 'conferenceAssignmentId' })
+    assignment!: ReviewerAssignment;
 
-  @Column({ type: 'int', nullable: true })
-  score: number;
+    // Score 0-10
+    @Column({ type: 'int' })
+    score!: number;
 
-  @Column({ type: 'text', nullable: true })
-  publicComment: string;
+    // Nhận xét cho tác giả (public to author)
+    @Column({ type: 'text' })
+    content!: string;
 
-  @Column({ type: 'text', nullable: true })
-  privateComment: string;
+    // Nhận xét nội bộ (internal discussion)
+    @Column({ type: 'text', nullable: true })
+    internalContent?: string;
 
-  @Column({ type: 'boolean', default: false })
-  isFinal: boolean;
+    @Column({ type: 'boolean', default: true })
+    isFinal!: boolean; // Flag to indicate if this is a submitted review or draft (future proofing)
 
-  // Chair decision for this review (propagated when chair decides on the submission)
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  chairDecision?: 'accepted' | 'rejected' | null;
+    @OneToMany(() => ReviewHistory, (history) => history.review)
+    history!: ReviewHistory[];
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+    @CreateDateColumn({ type: 'timestamptz' })
+    createdAt!: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt: Date;
+    @UpdateDateColumn({ type: 'timestamptz' })
+    updatedAt!: Date;
 }

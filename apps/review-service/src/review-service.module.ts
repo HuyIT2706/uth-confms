@@ -1,59 +1,93 @@
-// apps/review-service/src/review-service.module.ts
-
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
+import { JwtStrategy } from './auth/jwt.strategy';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
+import { HealthController } from './health.controller';
+import { ProfileController } from './profile.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HttpModule } from '@nestjs/axios';
-
-import { ReviewServiceController } from './review-service.controller';
-import { ReviewServiceService } from './review-service.service';
-
-// Thêm import proxy controller mới
-import { InvitationsProxyController } from './invitations/invitations.proxy.controller';
-
-import { AuthModule } from './auth/auth.module';
 import { ReviewerModule } from './reviewer/reviewer.module';
-import { ChairModule } from './chair/chair.module';
+import { Invitation } from './reviewer/entities/invitation.entity';
+import { ReviewerAssignment } from './reviewer/entities/reviewer-assignment.entity';
+import { Review } from './reviewer/entities/review.entity';
+import { ReviewHistory } from './reviewer/entities/review-history.entity';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: ['apps/review-service/.env', '.env'],
-    }),
-
-    PassportModule,
-
-    AuthModule,
-
-    HttpModule, // Để gọi submission-service + conference-service (proxy invitation)
-
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: +(config.get<string>('DB_PORT') ?? 5432),
-        username: config.get<string>('DB_USERNAME'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_DATABASE'),
-        synchronize: true, // Dev only
-        logging: process.env.NODE_ENV === 'development',
-        autoLoadEntities: true,
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('DB_REVIEW_URL') || process.env.DB_REVIEW_URL;
+        const syncEnv = config.get<string>('DB_REVIEW_SYNC') ?? process.env.DB_REVIEW_SYNC;
+        // nếu biến DB_REVIEW_SYNC set thành 'true' hoặc khi không phải production thì mặc định true (dev)
+        const synchronize = typeof syncEnv !== 'undefined' ? syncEnv === 'true' : (process.env.NODE_ENV !== 'production');
+
+        // Log để debug
+        console.log(`[TypeORM] Synchronize: ${synchronize}, NODE_ENV: ${process.env.NODE_ENV}, DB_REVIEW_SYNC: ${syncEnv}`);
+
+        if (url) {
+          return {
+            type: 'postgres',
+            url,
+            entities: [Invitation, ReviewerAssignment, Review, ReviewHistory],
+            synchronize,
+            ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
+          };
+        }
+
+        // Hỗ trợ cả DB_REVIEW_* và DB_* (cho docker-compose)
+        const host = config.get<string>('DB_REVIEW_HOST') || process.env.DB_REVIEW_HOST ||
+          config.get<string>('DB_HOST') || process.env.DB_HOST || 'localhost';
+        const port = Number(config.get<number>('DB_REVIEW_PORT') || process.env.DB_REVIEW_PORT ||
+          config.get<number>('DB_PORT') || process.env.DB_PORT || 5432);
+        const username = config.get<string>('DB_REVIEW_USER') || process.env.DB_REVIEW_USER ||
+          config.get<string>('DB_USERNAME') || process.env.DB_USERNAME || 'postgres';
+        const password = config.get<string>('DB_REVIEW_PASS') || process.env.DB_REVIEW_PASS ||
+          config.get<string>('DB_PASSWORD') || process.env.DB_PASSWORD || 'password';
+        const database = config.get<string>('DB_REVIEW_NAME') || process.env.DB_REVIEW_NAME ||
+          config.get<string>('DB_DATABASE') || process.env.DB_DATABASE || 'db_review';
+
+        const dbConfig = {
+          type: 'postgres' as const,
+          host,
+          port,
+          username,
+          password,
+          database,
+          entities: [Invitation, ReviewerAssignment, Review, ReviewHistory],
+          synchronize,
+          ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
+        };
+
+        console.log(`[TypeORM] Connecting to: ${host}:${port}/${database}, synchronize: ${synchronize}`);
+
+        return dbConfig;
+      },
     }),
-
     ReviewerModule,
-    ChairModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const secret =
+          config.get<string>('JWT_ACCESS_SECRET') ||
+          process.env.JWT_ACCESS_SECRET ||
+          process.env.JWT_SECRET ||
+          'dev_secret';
+        return { secret, signOptions: { expiresIn: '15m' } };
+      },
+    }),
   ],
-
-  controllers: [
-    ReviewServiceController,
-    InvitationsProxyController, // ← THÊM DÒNG NÀY ĐỂ CÓ ACCEPT/DECLINE Ở REVIEW-SERVICE
+  controllers: [HealthController, ProfileController],
+  providers: [
+    JwtStrategy,
+    JwtAuthGuard,
+    RolesGuard,
   ],
-
-  providers: [ReviewServiceService],
 })
 export class ReviewServiceModule { }

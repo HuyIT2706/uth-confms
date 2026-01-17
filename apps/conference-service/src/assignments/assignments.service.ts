@@ -12,6 +12,7 @@ import { Assignment, AssignmentStatus } from './entities/assignment.entity';
 import { Invitation, InvitationStatus } from '../invitations/entities/invitation.entity'; // NEW
 import { AssignReviewersDto } from './dto/assign-reviewers.dto';
 import { ConferencesService } from '../conferences/conferences.service';
+import { InvitationsService } from '../invitations/invitations.service';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { SubmissionsClient } from '../integrations/submissions.client';
@@ -26,14 +27,14 @@ export class AssignmentsService {
   constructor(
     @InjectRepository(Assignment)
     private assignmentRepo: Repository<Assignment>,
-    @InjectRepository(Invitation) // NEW
-    private invitationRepo: Repository<Invitation>, // NEW
+    @InjectRepository(Invitation)
+    private invitationRepo: Repository<Invitation>,
     private conferencesService: ConferencesService,
     private aiService: AiService,
     private auditService: AuditService,
     private submissionsClient: SubmissionsClient,
     private httpService: HttpService,
-    private emailsService: EmailsService, // NEW
+    private emailsService: EmailsService,
   ) { }
 
   /**
@@ -92,16 +93,13 @@ export class AssignmentsService {
       return acceptedInvitations.map(inv => ({
         id: inv.userId,
         topics: Array.isArray(inv.topics) ? inv.topics : [],
-        email: inv.reviewerEmail || undefined, // Gmail lấy từ UI khi mời
+        email: inv.reviewerEmail || undefined,
         name: inv.reviewerName || undefined,
       }));
     }
 
     // 2) Nếu chưa có PC nào cho hội nghị => fallback qua Identity Service như cũ
     try {
-      // Hỗ trợ cả 2 kiểu:
-      // - IDENTITY_SERVICE_URL=http://identity-service:3001
-      // - IDENTITY_SERVICE_URL=http://identity-service:3001/api
       const rawBase = process.env.IDENTITY_SERVICE_URL || 'http://identity-service:3001';
       const base = rawBase.replace(/\/+$/, '');
       const url = base.endsWith('/api')
@@ -297,6 +295,7 @@ export class AssignmentsService {
         throw new BadRequestException(`Invalid reviewer ID: ${reviewerId}`);
       }
 
+<<<<<<< HEAD
       // 1) Nếu đã có assignment ASSIGNED cho topic này → bỏ qua, không báo lỗi, không gửi mail nữa
       const existingAssigned = await this.assignmentRepo.findOne({
         where: {
@@ -366,8 +365,55 @@ export class AssignmentsService {
 
     await this.assignmentRepo.remove(assignment);
 
+    // Notify review-service to delete the assignment
+    try {
+      const reviewBase = process.env.REVIEW_SERVICE_URL || 'http://review-service:3004/api';
+      const notifyUrl = `${reviewBase}/internal/assignments/${assignmentId}/delete`;
+      const secret = process.env.REVIEWER_SERVICE_SECRET || '';
+      
+      // fire-and-forget, don't block chair action on notify failure
+      this.httpService.post(notifyUrl, {}, { headers: secret ? { 'x-service-secret': secret } : {} }).toPromise().catch(err => {
+        this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Failed to notify review-service to delete assignment: ${err.message}`);
+      });
+    } catch (err) {
+      this.auditService?.log?.('WARN', chairId, 'AssignmentsService', `Notify delete exception: ${err.message}`);
+    }
+
     await this.auditService.log('UNASSIGN_REVIEWER', chairId, 'Assignment', assignmentId);
 
     return { message: 'Reviewer unassigned successfully' };
+  }
+
+  /**
+   * INTERNAL: find assignments by reviewer id
+   */
+  async findByReviewer(reviewerId: number) {
+    return this.assignmentRepo.find({ where: { reviewerId } });
+  }
+
+  /**
+   * INTERNAL: mark an assignment accepted by reviewer
+   */
+  async markAccepted(assignmentId: string, reviewerId: number) {
+    const a = await this.assignmentRepo.findOne({ where: { id: assignmentId } as any });
+    if (!a) return null;
+    if (a.reviewerId !== Number(reviewerId)) return null;
+    a.status = AssignmentStatus.ASSIGNED;
+    await this.assignmentRepo.save(a);
+    await this.auditService.log('ASSIGNMENT_ACCEPTED', reviewerId, 'Assignment', assignmentId);
+    return a;
+  }
+
+  /**
+   * INTERNAL: mark an assignment declined by reviewer
+   */
+  async markDeclined(assignmentId: string, reviewerId: number) {
+    const a = await this.assignmentRepo.findOne({ where: { id: assignmentId } as any });
+    if (!a) return null;
+    if (a.reviewerId !== Number(reviewerId)) return null;
+    a.status = AssignmentStatus.DECLINED;
+    await this.assignmentRepo.save(a);
+    await this.auditService.log('ASSIGNMENT_DECLINED', reviewerId, 'Assignment', assignmentId);
+    return a;
   }
 }
