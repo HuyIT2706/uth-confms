@@ -268,4 +268,63 @@ export class SubmissionsClient {
     }
     return count;
   }
+
+  /**
+   * Lấy danh sách submissions theo conferenceId và topic cụ thể
+   * Sử dụng pagination để tránh tải toàn bộ nếu conference lớn
+   * @param conferenceId UUID của hội nghị
+   * @param topic Tên topic cần lọc (case-insensitive)
+   * @param maxPages Giới hạn số trang tối đa để tránh loop vô tận (default 10 ~2000 items)
+   * @param pageSize Số items mỗi trang (default 200 để giảm request)
+   * @returns Danh sách submissions khớp topic (chỉ fields cần cho email)
+   */
+  async getSubmissionsByTopic(
+    conferenceId: string,
+    topic: string,
+    maxPages = 10,
+    pageSize = 200,
+  ): Promise<{ title: string; downloadLink: string }[]> {
+    const normalizedTopic = topic.trim().toLowerCase();
+    const results: { title: string; downloadLink: string }[] = [];
+
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= maxPages) {
+      try {
+        const res = await this.getSubmissionsPaginated(conferenceId, page, pageSize);
+
+        if (!res.data?.length) break;
+
+        // Lọc submissions theo topic (case-insensitive)
+        const matched = res.data.filter((sub: Submission) =>
+          (sub.topic || '').trim().toLowerCase() === normalizedTopic
+        );
+
+        // Format cho email: title + latest download link
+        for (const sub of matched) {
+          let downloadLink = '';
+
+          if (sub.files?.length) {
+            // Sắp xếp theo version DESC để lấy file mới nhất
+            const latestFile = sub.files.sort((a: any, b: any) => b.version - a.version)[0];
+            downloadLink = latestFile?.file_path || '';
+          }
+
+          results.push({
+            title: sub.title,
+            downloadLink,
+          });
+        }
+
+        if (res.data.length < pageSize) hasMore = false;
+        page++;
+      } catch (error) {
+        this.logger.error(`Error fetching submissions page ${page} for topic "${topic}": ${error.message}`);
+        break; // Dừng nếu lỗi
+      }
+    }
+
+    return results;
+  }
 }
