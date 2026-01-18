@@ -188,16 +188,20 @@ export class SubmissionServiceController {
   // --- 5. API CẬP NHẬT METADATA SUBMISSION (AUTHOR ONLY) ---
   @Patch(':id')
   @Roles('AUTHOR')
+  @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Cập nhật thông tin bài nộp' })
+  @ApiConsumes('multipart/form-data')
   async updateSubmission(
     @Param('id') id: string,
     @Body() updateDto: UpdateSubmissionDto,
+    @UploadedFile() file: Express.Multer.File,
     @Request() req
   ) {
     return this.submissionService.updateSubmission(
       Number(id),
       req.user.userId,
-      updateDto
+      updateDto,
+      file
     );
   }
 

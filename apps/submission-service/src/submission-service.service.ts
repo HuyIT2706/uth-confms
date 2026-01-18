@@ -317,7 +317,12 @@ export class SubmissionServiceService implements OnModuleInit {
     try {
       const submission = await this.subRepo.findOne({
         where: { id },
-        relations: ['files', 'authors']
+        relations: ['files', 'authors'],
+        order: {
+          files: {
+            version: 'DESC'
+          }
+        }
       });
 
       if (!submission) {
@@ -415,7 +420,7 @@ export class SubmissionServiceService implements OnModuleInit {
   }
 
   // --- API 6: UPDATE SUBMISSION METADATA (AUTHOR ONLY) ---
-  async updateSubmission(id: number, userId: number, updateData: any) {
+  async updateSubmission(id: number, userId: number, updateData: any, file?: Express.Multer.File) {
     try {
       const submission = await this.subRepo.findOne({
         where: { id },
@@ -459,6 +464,13 @@ export class SubmissionServiceService implements OnModuleInit {
           console.log('✅ Abstract updated');
         }
 
+        if (updateData.topic !== undefined) {
+          submission.topic = updateData.topic;
+          console.log('✅ Topic updated');
+        }
+
+
+
         if (updateData.authors) {
           // Parse authors if it's a string (from form-data)
           const authorsData = typeof updateData.authors === 'string'
@@ -471,6 +483,57 @@ export class SubmissionServiceService implements OnModuleInit {
         console.log('🔄 Saving submission...');
         await this.subRepo.save(submission);
         console.log('✅ Submission saved');
+
+        // Handle file upload if provided
+        if (file) {
+          console.log('📎 New file provided, uploading to Supabase...');
+
+          // Get current version count
+          const currentVersionCount = await this.fileRepo.count({
+            where: { submission_id: id }
+          });
+          const newVersion = currentVersionCount + 1;
+
+          // Upload to Supabase
+          const filePath = `papers/${id}/v${newVersion}.${file.originalname.split('.').pop()}`;
+          const { data: uploadData, error: uploadError } = await this.supabase.storage
+            .from('submission')
+            .upload(filePath, file.buffer, {
+              contentType: file.mimetype,
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('❌ Supabase upload error:', uploadError);
+            throw new InternalServerErrorException('Lỗi khi upload file lên Supabase');
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = this.supabase.storage
+            .from('submission')
+            .getPublicUrl(filePath);
+
+          console.log('✅ File uploaded to Supabase:', publicUrl);
+
+          // Save file record
+          const fileRecord = this.fileRepo.create({
+            submission_id: id,
+            file_path: publicUrl,
+            version: newVersion
+          });
+
+          await this.fileRepo.save(fileRecord);
+          console.log('✅ File record saved');
+
+          // Audit log for file upload
+          await this.logAudit(
+            'UPLOAD',
+            'FILE',
+            id,
+            userId,
+            `Uploaded version ${newVersion}`
+          );
+        }
       } catch (updateError) {
         console.error('❌ Error during update:', updateError);
         throw updateError;
@@ -485,10 +548,21 @@ export class SubmissionServiceService implements OnModuleInit {
         `Updated submission metadata: ${JSON.stringify(updateData)}`
       );
 
+      // Refetch submission with relations to include new file
+      const updatedSubmission = await this.subRepo.findOne({
+        where: { id },
+        relations: ['files', 'authors'],
+        order: {
+          files: {
+            version: 'DESC'
+          }
+        }
+      });
+
       return {
         status: 'success',
         message: 'Đã cập nhật bài nộp thành công',
-        data: submission
+        data: updatedSubmission
       };
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException || error instanceof BadRequestException) {
