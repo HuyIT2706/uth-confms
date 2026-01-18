@@ -5,54 +5,39 @@ import {
 } from '@mui/icons-material';
 import adsUth from '../../assets/ads_uth.svg';
 import imageUth from '../../assets/image-uth.jpg';
+import { useGetConferencesQuery } from '../../redux/api/conferencesApi';
+import { useGetMySubmissionsQuery } from '../../redux/api/submissionsApi';
 
 const AuthorDashboard = () => {
-    // Mock data for demonstration
-    const recentConferences = [
-        {
-            id: 1,
-            name: 'Hội nghị Khoa học Công nghệ UTH 2026',
-            acronym: 'UTHCONF2026',
-            deadline: '2026-04-01',
-            status: 'Đang mở nộp bài',
-            statusColor: 'text-green-600 bg-green-50',
-        },
-        {
-            id: 2,
-            name: 'International Conference on AI & Machine Learning',
-            acronym: 'ICAIML2026',
-            deadline: '2026-03-15',
-            status: 'Sắp đóng',
-            statusColor: 'text-orange-600 bg-orange-50',
-        },
-        {
-            id: 3,
-            name: 'Vietnam Software Engineering Conference',
-            acronym: 'VSEC2026',
-            deadline: '2026-05-20',
-            status: 'Đang mở nộp bài',
-            statusColor: 'text-green-600 bg-green-50',
-        },
-    ];
+    const { data: conferencesData } = useGetConferencesQuery();
+    const { data: submissionsData } = useGetMySubmissionsQuery();
 
-    const mySubmissions = [
-        {
-            id: 1,
-            title: 'Ứng dụng Deep Learning trong nhận diện khuôn mặt',
-            conference: 'UTHCONF2026',
-            status: 'Đang đánh giá',
-            statusColor: 'text-blue-600 bg-blue-50',
-            submittedDate: '2025-12-15',
-        },
-        {
-            id: 2,
-            title: 'Phân tích dữ liệu lớn với Apache Spark',
-            conference: 'ICAIML2026',
-            status: 'Đã chấp nhận',
-            statusColor: 'text-green-600 bg-green-50',
-            submittedDate: '2025-12-10',
-        },
-    ];
+    const conferences = Array.isArray(conferencesData) ? conferencesData : (conferencesData?.data || []);
+    const submissions = submissionsData?.data || [];
+
+    // Take first 3 conferences
+    const recentConferences = conferences.slice(0, 3).map((conf: { id: string; name: string; acronym: string; deadlines?: { submission: string }; status: string }) => ({
+        id: conf.id,
+        name: conf.name,
+        acronym: conf.acronym,
+        deadline: conf.deadlines?.submission,
+        status: conf.status === 'OPEN_FOR_SUBMISSION' ? 'Đang mở nộp bài' : 'Sắp đóng',
+        statusColor: conf.status === 'OPEN_FOR_SUBMISSION' ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50',
+    }));
+
+    // Take first 2 submissions
+    const mySubmissions = submissions.slice(0, 2).map((sub) => ({
+        id: sub.id,
+        title: sub.title,
+        conference: sub.conferenceId,
+        status: sub.status === 'SUBMITTED' ? 'Đã nộp' :
+            sub.status === 'UNDER_REVIEW' ? 'Đang đánh giá' :
+                sub.status === 'ACCEPTED' ? 'Đã chấp nhận' : 'Từ chối',
+        statusColor: sub.status === 'SUBMITTED' ? 'text-blue-600 bg-blue-50' :
+            sub.status === 'UNDER_REVIEW' ? 'text-yellow-600 bg-yellow-50' :
+                sub.status === 'ACCEPTED' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50',
+        submittedDate: sub.createdAt,
+    }));
 
     return (
         <div>
@@ -122,10 +107,11 @@ const AuthorDashboard = () => {
                             </div>
 
                             <div className="space-y-4">
-                                {recentConferences.map((conf) => (
-                                    <div
+                                {recentConferences.map((conf: { id: string; name: string; acronym: string; deadline: string; status: string; statusColor: string }) => (
+                                    <Link
                                         key={conf.id}
-                                        className="border border-gray-200 rounded-lg p-4 hover:border-[#008689] hover:shadow-md transition-all duration-300 cursor-pointer"
+                                        to={`/submission?conferenceId=${conf.id}`}
+                                        className="block border border-gray-200 rounded-lg p-4 hover:border-[#008689] hover:shadow-md transition-all duration-300 cursor-pointer"
                                     >
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex-1">
@@ -144,7 +130,7 @@ const AuthorDashboard = () => {
                                             <CalendarMonth className="w-4 h-4 mr-2" />
                                             Deadline: {new Date(conf.deadline).toLocaleDateString('vi-VN')}
                                         </div>
-                                    </div>
+                                    </Link>
                                 ))}
                             </div>
                         </div>

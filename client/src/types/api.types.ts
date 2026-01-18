@@ -112,13 +112,12 @@ export interface Track {
 
 // Submission Types
 export const SubmissionStatus = {
-  DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
-  REVIEWING: 'REVIEWING',
+  UNDER_REVIEW: 'UNDER_REVIEW',
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
   WITHDRAWN: 'WITHDRAWN',
-  CAMERA_READY: 'CAMERA_READY',
+  REVISION_REQUIRED: 'REVISION_REQUIRED',
 } as const;
 
 export type SubmissionStatus = typeof SubmissionStatus[keyof typeof SubmissionStatus];

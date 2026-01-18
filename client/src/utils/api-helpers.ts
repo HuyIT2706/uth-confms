@@ -71,8 +71,8 @@ export const createSubmissionFormData = (
     title: string;
     abstract: string;
     keywords?: string;
-    trackId: number;
-    conferenceId: number;
+    topic: string;
+    conferenceId: string;
   },
   file: File
 ): FormData => {
@@ -83,8 +83,8 @@ export const createSubmissionFormData = (
   if (data.keywords) {
     formData.append('keywords', data.keywords);
   }
-  formData.append('trackId', data.trackId.toString());
-  formData.append('conferenceId', data.conferenceId.toString());
+  formData.append('topic', data.topic);
+  formData.append('conferenceId', data.conferenceId);
   return formData;
 };
 
