@@ -7,13 +7,12 @@ import AdminDashboard from './AdminDashboard';
 type UserRole = 'AUTHOR' | 'CHAIR' | 'REVIEWER' | 'ADMIN';
 
 const HomePage = () => {
-    // Mock role - will be replaced with real auth data when logged in
     const [currentRole, setCurrentRole] = useState<UserRole>('AUTHOR');
     const { user } = useAuth();
 
     useEffect(() => {
         if (!user) return;
-        const rolesInput = user.roles;
+        const rolesInput: unknown = user.roles;
         let roles: string[] = [];
         if (Array.isArray(rolesInput)) {
             roles = rolesInput.map((r) => (typeof r === 'string' ? r : r?.name ?? r?.role ?? r?.value)).filter(Boolean).map((s) => s!.toString().toUpperCase());
@@ -27,7 +26,6 @@ const HomePage = () => {
         else setCurrentRole('AUTHOR');
     }, [user]);
 
-    // Render dashboard based on role
     const renderDashboard = () => {
         switch (currentRole) {
             case 'AUTHOR':
@@ -38,8 +36,7 @@ const HomePage = () => {
                 // TODO: Create ReviewerDashboard
                 return <AuthorDashboard />;
             case 'ADMIN':
-                // For admin we want the same UI as Chair but admin will have extra user management links
-                return <ChairDashboard currentRole={currentRole} />;
+                return <AdminDashboard />;
             default:
                 return <AuthorDashboard />;
         }
