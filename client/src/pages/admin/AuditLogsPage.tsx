@@ -2,18 +2,18 @@ import { useState } from 'react';
 import {
     Search,
 } from '@mui/icons-material';
+import { useGetRecentActivitiesQuery } from '../../redux/api/adminApi';
 
 interface AuditLog {
-    id: number;
+    id: string;
     user: string;
-    role: string;
+    userId: number | null;
     action: string;
     resource: string;
-    resourceId: string;
-    details: string;
-    ipAddress: string;
+    entityType: string | null;
+    entityId: string | null;
     timestamp: string;
-    status: 'Success' | 'Failed';
+    createdAt: Date;
 }
 
 const AuditLogsPage = () => {
@@ -21,88 +21,66 @@ const AuditLogsPage = () => {
     const [filterAction, setFilterAction] = useState('all');
     const [filterDate, setFilterDate] = useState('');
 
-    // Mock data
-    const logs: AuditLog[] = [
-        {
-            id: 1,
-            user: 'Nguyễn Văn A',
-            role: 'CHAIR',
-            action: 'CREATE',
-            resource: 'Conference',
-            resourceId: 'CONF-2026-001',
-            details: 'Created new conference: International Conference on Computer Science 2026',
-            ipAddress: '192.168.1.10',
-            timestamp: '2026-01-05 10:30:00',
-            status: 'Success',
-        },
-        {
-            id: 2,
-            user: 'Trần Thị B',
-            role: 'AUTHOR',
-            action: 'SUBMIT',
-            resource: 'Paper',
-            resourceId: 'PAPER-123',
-            details: 'Submitted paper: Deep Learning in Healthcare',
-            ipAddress: '192.168.1.15',
-            timestamp: '2026-01-05 10:15:00',
-            status: 'Success',
-        },
-        {
-            id: 3,
-            user: 'Lê Văn C',
-            role: 'REVIEWER',
-            action: 'REVIEW',
-            resource: 'Paper',
-            resourceId: 'PAPER-123',
-            details: 'Submitted review for paper #123',
-            ipAddress: '192.168.1.20',
-            timestamp: '2026-01-05 09:45:00',
-            status: 'Success',
-        },
-        {
-            id: 4,
-            user: 'System Admin',
-            role: 'ADMIN',
-            action: 'LOGIN',
-            resource: 'System',
-            resourceId: 'N/A',
-            details: 'Admin login detected',
-            ipAddress: '192.168.1.1',
-            timestamp: '2026-01-05 09:00:00',
-            status: 'Success',
-        },
-        {
-            id: 5,
-            user: 'Phạm Thị D',
-            role: 'AUTHOR',
-            action: 'LOGIN_FAILED',
-            resource: 'System',
-            resourceId: 'N/A',
-            details: 'Invalid password attempt',
-            ipAddress: '192.168.1.30',
-            timestamp: '2026-01-05 08:30:00',
-            status: 'Failed',
-        },
-        {
-            id: 6,
-            user: 'Hoàng Văn E',
-            role: 'CHAIR',
-            action: 'UPDATE',
-            resource: 'Conference',
-            resourceId: 'CONF-2026-002',
-            details: 'Updated conference settings',
-            ipAddress: '192.168.1.25',
-            timestamp: '2026-01-04 16:20:00',
-            status: 'Success',
-        },
-    ];
+    /**
+     * BƯỚC 1: Gọi API để lấy audit logs thực
+     * 
+     * useGetRecentActivitiesQuery() tự động:
+     * - Fetch data khi component mount
+     * - Cache dữ liệu
+     * - Provide loading/error states
+     */
+    const { data: apiLogs, isLoading, error } = useGetRecentActivitiesQuery();
 
+    /**
+     * BƯỚC 2: Transform API data sang format của UI
+     * 
+     * API trả về: { id, user, action, resource, timestamp, ... }
+     * UI cần: { id, user, role, action, resource, details, status, ... }
+     */
+    const logs: AuditLog[] = apiLogs || [];
+
+    /**
+     * BƯỚC 3: Loading State
+     */
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#008689] mx-auto mb-4"></div>
+                    <p className="text-gray-600">Đang tải nhật ký hoạt động...</p>
+                </div>
+            </div>
+        );
+    }
+
+    /**
+     * BƯỚC 4: Error State
+     */
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-600 mb-4">Không thể tải nhật ký hoạt động</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-[#008689] text-white rounded hover:bg-[#006666]"
+                    >
+                        Thử lại
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    /**
+     * BƯỚC 5: Filter logs
+     */
     const filteredLogs = logs.filter((log) => {
         const matchesSearch =
             log.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            log.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
             log.resource.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesAction = filterAction === 'all' || log.action === filterAction;
+        const matchesAction = filterAction === 'all' || log.action.includes(filterAction);
         const matchesDate = !filterDate || log.timestamp.includes(filterDate);
         return matchesSearch && matchesAction && matchesDate;
     });
@@ -141,13 +119,16 @@ const AuditLogsPage = () => {
                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <p className="text-sm font-medium text-gray-600">Hoạt động hôm nay</p>
                         <p className="text-2xl font-bold text-blue-600 mt-2">
-                            {logs.filter(l => l.timestamp.includes('2026-01-05')).length}
+                            {logs.filter(l => {
+                                const today = new Date().toISOString().split('T')[0];
+                                return l.timestamp.includes(today);
+                            }).length}
                         </p>
                     </div>
                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <p className="text-sm font-medium text-gray-600">Lỗi / Thất bại</p>
                         <p className="text-2xl font-bold text-red-600 mt-2">
-                            {logs.filter(l => l.status === 'Failed').length}
+                            {logs.filter(l => l.action.includes('FAILED') || l.action.includes('ERROR')).length}
                         </p>
                     </div>
                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -237,7 +218,10 @@ const AuditLogsPage = () => {
                                 {filteredLogs.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                                            Không tìm thấy nhật ký nào
+                                            {logs.length === 0
+                                                ? 'Chưa có nhật ký hoạt động nào'
+                                                : 'Không tìm thấy nhật ký nào phù hợp với bộ lọc'
+                                            }
                                         </td>
                                     </tr>
                                 ) : (
@@ -245,10 +229,10 @@ const AuditLogsPage = () => {
                                         <tr key={log.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-900">
-                                                    {new Date(log.timestamp).toLocaleString('vi-VN')}
+                                                    {log.timestamp}
                                                 </div>
-                                                <div className="text-xs text-gray-500 font-mono mt-1">
-                                                    {log.ipAddress}
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    {new Date(log.createdAt).toLocaleString('vi-VN')}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -260,9 +244,11 @@ const AuditLogsPage = () => {
                                                         <div className="text-sm font-medium text-gray-900">
                                                             {log.user}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            {log.role}
-                                                        </div>
+                                                        {log.userId && (
+                                                            <div className="text-xs text-gray-500">
+                                                                ID: {log.userId}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -274,21 +260,17 @@ const AuditLogsPage = () => {
                                             <td className="px-6 py-4">
                                                 <div className="text-sm text-gray-900 font-medium">
                                                     {log.resource}
-                                                    {log.resourceId !== 'N/A' && ` #${log.resourceId}`}
                                                 </div>
-                                                <div className="text-sm text-gray-500">
-                                                    {log.details}
-                                                </div>
+                                                {log.entityType && (
+                                                    <div className="text-sm text-gray-500">
+                                                        {log.entityType} {log.entityId && `#${log.entityId.substring(0, 8)}`}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${log.status === 'Success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                    {log.status === 'Success' ? (
-                                                        <span className="w-2 h-2 mr-1.5 bg-green-400 rounded-full" />
-                                                    ) : (
-                                                        <span className="w-2 h-2 mr-1.5 bg-red-400 rounded-full" />
-                                                    )}
-                                                    {log.status}
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                    <span className="w-2 h-2 mr-1.5 bg-green-400 rounded-full" />
+                                                    Success
                                                 </span>
                                             </td>
                                         </tr>

@@ -18,6 +18,8 @@ import { EmailsModule } from './emails/emails.module';
 import { ConferencesModule } from './conferences/conferences.module';
 import { AiModule } from './ai/ai.module';
 import { InternalModule } from './internal/internal.module';
+// BƯỚC 1.4: Import AdminModule để NestJS load nó
+import { AdminModule } from './admin/admin.module';
 
 import { ConferencesCron } from './conferences/conferences.cron';
 import { JwtStrategy } from './auth/jwt.strategy';
@@ -77,6 +79,8 @@ import { JwtStrategy } from './auth/jwt.strategy';
     AssignmentsModule,
     DecisionsModule,
     InternalModule,
+    // BƯỚC 1.4: Thêm AdminModule vào imports để NestJS load nó
+    AdminModule,
   ],
 
   providers: [

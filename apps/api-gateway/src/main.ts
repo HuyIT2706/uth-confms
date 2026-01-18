@@ -99,6 +99,17 @@ async function bootstrap() {
     }),
   );
 
+  // Admin endpoints → Conference Service
+  // Route: /api/admin/* → http://conference-service:3002/api/admin/*
+  app.use(
+    '/api/admin',
+    createProxyMiddleware({
+      target: conferenceServiceUrl,
+      pathRewrite: (path) => (path === '/' ? '/api/admin' : '/api/admin' + path),
+      ...proxyOptions,
+    }),
+  );
+
   // Assignments
   app.use(
     '/api/assignments',

@@ -15,7 +15,7 @@ import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
@@ -28,12 +28,12 @@ export class UsersController {
       if (!userId || typeof userId !== 'number') {
         throw new UnauthorizedException('Token không hợp lệ hoặc thiếu thông tin người dùng');
       }
-      
+
       const user = await this.usersService.getProfile(userId);
       if (!user) {
         throw new NotFoundException('Không tìm thấy thông tin người dùng');
       }
-      
+
       const { password, roles, ...rest } = user;
       return {
         message: 'Lấy thông tin người dùng thành công',
@@ -76,7 +76,7 @@ export class UsersController {
   }
 
   @Get('get-reset-code')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy code db để xác thực email',
     description: 'Helper endpoint để lấy reset code cho user để test.'
   })
@@ -108,8 +108,8 @@ export class UsersController {
 
   @Post('reset-password')
   @ApiOperation({
-      summary: "Đặt lại password",
-      description: "Đặt lại password khi quên pass"
+    summary: "Đặt lại password",
+    description: "Đặt lại password khi quên pass"
   })
   async resetPassword(
     @Body('email') email: string,
@@ -118,6 +118,18 @@ export class UsersController {
   ) {
     await this.usersService.resetPassword(email, code, newPassword);
     return { message: 'Reset mật khẩu thành công' };
+  }
+
+  // Public endpoint for statistics - No authentication required
+  @Get('count')
+  @ApiOperation({ summary: 'Lấy số lượng users (Public - for statistics)' })
+  @ApiResponse({ status: 200, description: 'Lấy số lượng thành công' })
+  async getUsersCount() {
+    const users = await this.usersService.findAll();
+    return {
+      total: users.length,
+      active: users.filter(u => u.isActive !== false).length,
+    };
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

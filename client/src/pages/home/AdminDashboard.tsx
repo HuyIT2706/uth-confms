@@ -21,41 +21,122 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
+/**
+ * BƯỚC 3.1: Import hooks từ adminApi
+ * 
+ * Giải thích:
+ * - useGetSystemStatisticsQuery: Hook để lấy thống kê tổng quan
+ * - useGetRecentActivitiesQuery: Hook để lấy hoạt động gần đây
+ * 
+ * RTK Query tự động:
+ * - Gọi API khi component mount
+ * - Cache dữ liệu
+ * - Provide loading/error states
+ */
+import { useGetSystemStatisticsQuery, useGetRecentActivitiesQuery } from '../../redux/api/adminApi';
 
 const AdminDashboard = () => {
-    // Mock data for Admin Dashboard
+    /**
+     * BƯỚC 3.2: Gọi API hooks
+     * 
+     * Giải thích destructuring:
+     * - data: Dữ liệu trả về từ API (undefined khi chưa có)
+     * - isLoading: true khi đang fetch
+     * - error: Chứa lỗi nếu API call thất bại
+     * 
+     * Đặt alias:
+     * - data: stats → dễ đọc hơn
+     * - isLoading: statsLoading → phân biệt với loading khác
+     */
+    const { data: stats, isLoading: statsLoading, error: statsError } = useGetSystemStatisticsQuery();
+    const { data: activities } = useGetRecentActivitiesQuery();
+
+    /**
+     * BƯỚC 3.3: Hiển thị Loading State
+     * 
+     * Khi đang fetch data:
+     * - Hiển thị spinner
+     * - Ngăn render phần còn lại (tránh lỗi undefined)
+     */
+    if (statsLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#008689] mx-auto mb-4"></div>
+                    <p className="text-gray-600">Đang tải dữ liệu thống kê...</p>
+                </div>
+            </div>
+        );
+    }
+
+    /**
+     * BƯỚC 3.4: Hiển thị Error State
+     * 
+     * Khi API call thất bại:
+     * - Hiển thị thông báo lỗi
+     * - Cung cấp nút "Thử lại"
+     */
+    if (statsError) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-600 mb-4">Không thể tải dữ liệu thống kê</p>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Vui lòng kiểm tra Conference Service có đang chạy không
+                    </p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-[#008689] text-white rounded hover:bg-[#006666]"
+                    >
+                        Thử lại
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    /**
+     * BƯỚC 3.5: Thay thế Mock Data bằng Real Data
+     * 
+     * Trước: Hard-coded values
+     * Sau: Lấy từ stats object (với fallback)
+     * 
+     * Optional chaining (?.) và nullish coalescing (||):
+     * - stats?.submissions.total: Nếu stats undefined → không lỗi
+     * - || '0': Nếu giá trị null/undefined → dùng '0'
+     */
     const systemStats = [
         {
             label: 'Tổng bài nộp',
-            value: '206',
+            value: stats?.submissions.total.toString() || '0',
             icon: Description,
             color: 'text-blue-600',
             bgColor: 'bg-blue-50',
-            trend: 'Tổng số bài nộp',
+            trend: `${stats?.submissions.underReview || 0} đang xét duyệt`,
         },
         {
             label: 'Tỷ lệ chấp nhận',
-            value: '56.5%',
+            value: `${stats?.decisions.acceptanceRate || '0'}%`,
             icon: Assessment,
             color: 'text-green-600',
             bgColor: 'bg-green-50',
-            trend: 'Tỷ lệ chấp nhận',
+            trend: `${stats?.decisions.accepted || 0}/${stats?.decisions.total || 0} được chấp nhận`,
         },
         {
-            label: 'Phản biện viên',
-            value: '45',
+            label: 'Người dùng',
+            value: stats?.users.total.toString() || '0',
             icon: People,
             color: 'text-purple-600',
             bgColor: 'bg-purple-50',
-            trend: 'Tổng số phản biện',
+            trend: `${stats?.users.active || 0} đang hoạt động`,
         },
         {
-            label: 'Thời gian bình quân',
-            value: '5.2 ngày',
+            label: 'Hội nghị',
+            value: stats?.conferences.total.toString() || '0',
             icon: CalendarMonth,
             color: 'text-orange-600',
             bgColor: 'bg-orange-50',
-            trend: 'Thời gian đánh giá',
+            trend: `${stats?.conferences.active || 0} đang hoạt động`,
         },
     ];
 
@@ -107,67 +188,51 @@ const AdminDashboard = () => {
         },
     ];
 
-    const recentActivity = [
-        {
-            id: 1,
-            user: 'Nguyễn Văn A',
-            action: 'đã tạo hội nghị mới',
-            resource: 'ICCS 2026',
-            timestamp: '5 phút trước',
-        },
-        {
-            id: 2,
-            user: 'Trần Thị B',
-            action: 'đã nộp bài báo',
-            resource: 'Deep Learning in Healthcare',
-            timestamp: '12 phút trước',
-        },
-        {
-            id: 3,
-            user: 'Lê Văn C',
-            action: 'đã hoàn thành đánh giá',
-            resource: 'Paper #234',
-            timestamp: '25 phút trước',
-        },
-        {
-            id: 4,
-            user: 'Phạm Thị D',
-            action: 'đã đăng ký tài khoản',
-            resource: 'New User Account',
-            timestamp: '1 giờ trước',
-        },
-        {
-            id: 5,
-            user: 'Hoàng Văn E',
-            action: 'đã cập nhật cài đặt',
-            resource: 'SMTP Configuration',
-            timestamp: '2 giờ trước',
-        },
-    ];
+    /**
+     * BƯỚC 3.6: Sử dụng Recent Activities từ API
+     * 
+     * Trước: Mock data array
+     * Sau: activities từ useGetRecentActivitiesQuery()
+     * 
+     * Fallback: Nếu activities undefined → dùng empty array []
+     */
+    const recentActivity = activities || [];
 
-    // Data for Bar Chart - Submissions by track
+    /**
+     * BƯỚC 3.7: Cập nhật biểu đồ với dữ liệu thực
+     * 
+     * Bar Chart: Hiển thị tổng số submissions, reviews, decisions
+     * (Simplified vì chưa có API cho track-specific data)
+     */
     const submissionsByTrack = [
-        { name: 'AI & ML', submissions: 45, reviews: 38, decisions: 32 },
-        { name: 'Software Eng', submissions: 38, reviews: 32, decisions: 28 },
-        { name: 'Data Science', submissions: 42, reviews: 35, decisions: 30 },
-        { name: 'Cybersecurity', submissions: 28, reviews: 24, decisions: 20 },
-        { name: 'IoT', submissions: 32, reviews: 28, decisions: 24 },
-        { name: 'Cloud Computing', submissions: 21, reviews: 18, decisions: 15 },
+        {
+            name: 'Tổng hợp',
+            'Bài nộp': stats?.submissions.total || 0,
+            'Quyết định': stats?.decisions.total || 0,
+            'Đã đánh giá': stats?.reviews.total || 0
+        },
     ];
 
-    // Data for Pie Chart - Acceptance rate by type
+    /**
+     * Pie Chart: Tỷ lệ chấp nhận theo loại
+     * Sử dụng dữ liệu thực từ stats.decisions
+     */
     const acceptanceData = [
-        { name: 'Chấp nhận', value: 116, color: '#10b981' },
-        { name: 'Từ chối', value: 68, color: '#ef4444' },
-        { name: 'Đang xét', value: 22, color: '#f59e0b' },
-    ];
-
-    // Statistics by school
-    const schoolStats = [
-        { school: 'ĐH Bách Khoa TP.HCM', submissions: 42, reviews: 38, decisions: 35, acceptance: '83%' },
-        { school: 'ĐH Khoa học Tự nhiên', submissions: 38, reviews: 35, decisions: 32, acceptance: '84%' },
-        { school: 'ĐH Công nghệ', submissions: 35, reviews: 32, decisions: 28, acceptance: '80%' },
-        { school: 'ĐH Giao thông Vận tải', submissions: 28, reviews: 25, decisions: 22, acceptance: '79%' },
+        {
+            name: 'Chấp nhận',
+            value: stats?.decisions.accepted || 0,
+            color: '#10b981'
+        },
+        {
+            name: 'Từ chối',
+            value: stats?.decisions.rejected || 0,
+            color: '#ef4444'
+        },
+        {
+            name: 'Đang xét',
+            value: stats?.submissions.underReview || 0,
+            color: '#f59e0b'
+        },
     ];
 
     return (
@@ -289,58 +354,7 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                {/* Statistics Table */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">
-                        Thống kê theo trường
-                    </h3>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Trường
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Bài nộp
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Đánh giá
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Quyết định
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Tỷ lệ
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {schoolStats.map((school, index) => (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {school.school}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
-                                            {school.submissions}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
-                                            {school.reviews}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
-                                            {school.decisions}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                                {school.acceptance}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                {/* Statistics Table - Removed until we have API endpoint for school-specific data */}
 
                 {/* Recent Activity */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
