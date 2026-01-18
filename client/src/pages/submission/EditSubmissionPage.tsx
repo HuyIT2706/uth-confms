@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Add, CloudUpload, Close, ArrowBack } from '@mui/icons-material';
 import bgUth from '../../assets/bg_uth.svg';
+import { useGetSubmissionByIdQuery, useUpdateSubmissionMutation } from '../../redux/api/submissionsApi';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface CoAuthor {
     id: number;
@@ -10,90 +13,44 @@ interface CoAuthor {
     affiliation: string;
 }
 
-interface Submission {
-    id: number;
-    title: string;
-    abstract: string;
-    keywords: string;
-    mainAuthor: {
-        name: string;
-        email: string;
-        affiliation: string;
-    };
-    coAuthors: CoAuthor[];
-    pdfFile: string;
-}
-
 const EditSubmissionPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
-    // Mock data - same as in other pages
-    const submissionsData: Record<number, Submission> = {
-        1: {
-            id: 1,
-            title: 'Deep Learning Approaches for Image Classification',
-            abstract: 'This paper presents a novel approach to image classification using deep learning techniques. We propose a new architecture that combines convolutional neural networks with attention mechanisms to improve classification accuracy on large-scale datasets.',
-            keywords: 'Deep Learning, Image Classification, CNN, Attention Mechanism',
-            mainAuthor: {
-                name: 'Nguyễn Văn A',
-                email: 'nguyenvana@example.com',
-                affiliation: 'Trường Đại học Giao thông Vận tải TP.HCM'
-            },
-            coAuthors: [
-                {
-                    id: 1,
-                    name: 'Trần Thị B',
-                    email: 'tranthib@example.com',
-                    affiliation: 'Đại học Bách Khoa TP.HCM'
-                }
-            ],
-            pdfFile: 'paper_1.pdf'
-        },
-        2: {
-            id: 2,
-            title: 'Microservices Architecture for Scalable Applications',
-            abstract: 'We propose a microservices-based architecture for building scalable web applications. The approach includes containerization, service discovery, and load balancing strategies.',
-            keywords: 'Microservices, Scalability, Docker, Kubernetes',
-            mainAuthor: {
-                name: 'Nguyễn Văn A',
-                email: 'nguyenvana@example.com',
-                affiliation: 'Trường Đại học Giao thông Vận tải TP.HCM'
-            },
-            coAuthors: [
-                {
-                    id: 1,
-                    name: 'Lê Văn C',
-                    email: 'levanc@example.com',
-                    affiliation: 'Đại học Quốc Gia TP.HCM'
-                }
-            ],
-            pdfFile: 'paper_2.pdf'
-        }
-    };
+    const { data: submissionData, isLoading, error } = useGetSubmissionByIdQuery(id || '');
+    const [updateSubmission, { isLoading: isUpdating }] = useUpdateSubmissionMutation();
 
-    const submission = submissionsData[parseInt(id || '0')];
+    const submission = submissionData?.data;
 
     const [title, setTitle] = useState('');
     const [abstract, setAbstract] = useState('');
     const [keywords, setKeywords] = useState('');
-    const [mainAuthor, setMainAuthor] = useState({ name: '', email: '', affiliation: '' });
+    const [topic, setTopic] = useState('');
     const [coAuthors, setCoAuthors] = useState<CoAuthor[]>([{ id: 1, name: '', email: '', affiliation: '' }]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [currentPdfFile, setCurrentPdfFile] = useState('');
 
     useEffect(() => {
         if (submission) {
-            setTitle(submission.title);
-            setAbstract(submission.abstract);
-            setKeywords(submission.keywords);
-            setMainAuthor(submission.mainAuthor);
-            setCoAuthors(submission.coAuthors);
-            setCurrentPdfFile(submission.pdfFile);
+            setTitle(submission.title || '');
+            setAbstract(submission.abstract || '');
+            setKeywords(submission.keywords || '');
+            setTopic((submission as any).topic || '');
+            setCurrentPdfFile((submission as any).fileUrl || '');
         }
     }, [submission]);
 
-    if (!submission) {
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 py-16 px-4">
+                <div className="max-w-4xl mx-auto text-center">
+                    <div className="text-gray-600">Đang tải...</div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !submission) {
         return (
             <div className="min-h-screen bg-gray-50 py-16 px-4">
                 <div className="max-w-4xl mx-auto text-center">
@@ -138,11 +95,35 @@ const EditSubmissionPage = () => {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Update submission:', { title, abstract, keywords, mainAuthor, coAuthors, selectedFile });
-        // TODO: Implement update logic
-        navigate('/my-submissions');
+
+        try {
+            const updateData: any = {
+                title,
+                abstract,
+                keywords,
+                topic,
+            };
+
+            console.log('📝 Submitting update...');
+            console.log('📎 Selected File:', selectedFile);
+
+            const payload = {
+                id: id!,
+                data: updateData,
+                file: selectedFile || undefined
+            };
+            console.log('📦 API Payload:', payload);
+
+            await updateSubmission(payload).unwrap();
+            toast.success('Cập nhật bài nộp thành công!');
+            setTimeout(() => navigate('/my-submissions'), 1500);
+        } catch (err: any) {
+            console.error('Update failed', err);
+            const errorMsg = err?.data?.message || 'Cập nhật thất bại. Vui lòng thử lại.';
+            toast.error(errorMsg);
+        }
     };
 
     return (
@@ -229,59 +210,24 @@ const EditSubmissionPage = () => {
                                     required
                                 />
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Main Author Information */}
-                    <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                        <h2 className="text-base font-bold text-gray-900 mb-4">
-                            Thông tin tác giả chính
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Họ và tên *
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Nguyễn Văn A"
-                                    value={mainAuthor.name}
-                                    onChange={(e) => setMainAuthor({ ...mainAuthor, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#008689] focus:border-[#008689] text-sm bg-gray-50"
-                                    required
-                                />
-                            </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Email *
-                                </label>
-                                <input
-                                    type="email"
-                                    placeholder="email@gmail.com"
-                                    value={mainAuthor.email}
-                                    onChange={(e) => setMainAuthor({ ...mainAuthor, email: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#008689] focus:border-[#008689] text-sm bg-gray-50"
-                                    required
-                                />
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Cơ quan / Tổ chức *
+                                    Chủ đề bài báo *
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Trường Đại học Giao thông Vận tải TP.HCM"
-                                    value={mainAuthor.affiliation}
-                                    onChange={(e) => setMainAuthor({ ...mainAuthor, affiliation: e.target.value })}
+                                    placeholder="Nhập chủ đề bài báo"
+                                    value={topic}
+                                    onChange={(e) => setTopic(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#008689] focus:border-[#008689] text-sm bg-gray-50"
                                     required
                                 />
                             </div>
                         </div>
                     </div>
+
+
 
                     {/* Co-Authors */}
                     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -376,7 +322,7 @@ const EditSubmissionPage = () => {
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#008689] transition-colors">
                             <input
                                 type="file"
-                                accept=".pdf"
+                                accept=".docx"
                                 onChange={handleFileSelect}
                                 className="hidden"
                                 id="pdf-upload"
@@ -398,10 +344,10 @@ const EditSubmissionPage = () => {
                                 ) : (
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">
-                                            Kéo thả file PDF vào đây
+                                            Kéo thả file DOCX vào đây
                                         </p>
                                         <p className="text-xs text-gray-500">
-                                            Chỉ chấp nhận file PDF, tối đa 10MB
+                                            Chỉ chấp nhận file DOCX, tối đa 10MB
                                         </p>
                                     </div>
                                 )}
@@ -421,13 +367,15 @@ const EditSubmissionPage = () => {
 
                         <button
                             type="submit"
-                            className="px-6 py-2 bg-[#008689] hover:bg-[#006666] text-white font-medium rounded-md transition-colors duration-200 text-sm"
+                            disabled={isUpdating}
+                            className="px-6 py-2 bg-[#008689] hover:bg-[#006666] text-white font-medium rounded-md transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Cập nhật bài nộp
+                            {isUpdating ? 'Đang cập nhật...' : 'Cập nhật bài nộp'}
                         </button>
                     </div>
                 </form>
             </div>
+            <ToastContainer position="top-right" autoClose={3000} />
         </div>
     );
 };
