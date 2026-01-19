@@ -129,6 +129,18 @@ async function bootstrap() {
     }),
   );
 
+  // Reviewer API: forward /api/reviewer/* -> /reviewer/* trong review-service
+  app.use(
+    '/api/reviewer',
+    createProxyMiddleware({
+      target: reviewServiceUrl,
+      // Lưu ý: express remove basePath khi mount, nên path ở đây chỉ còn '/invitations'
+      // Cần prepend lại '/api/reviewer' để khớp global prefix của review-service
+      pathRewrite: (path) => `/api/reviewer${path}`,
+      ...proxyOptions,
+    }),
+  );
+
   await app.listen(3000);
   console.log('Gateway is running on http://localhost:3000');
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     MailOutline,
     CheckCircle,
@@ -8,8 +9,9 @@ import {
     CalendarToday,
     Search,
 } from '@mui/icons-material';
-import { useGetInvitationsQuery } from '../../redux/api/invitationsApi';
-import { mockInvitations } from '../../mockData/reviewerMockData';
+import { CircularProgress } from '@mui/material';
+import { useGetInvitationsQuery, useUpdateInvitationStatusMutation } from '../../redux/api/invitationsApi';
+import { showToast } from '../../utils/toast';
 
 interface Invitation {
     id: string;
@@ -26,23 +28,24 @@ interface Invitation {
     status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED';
     invitationDate: string;
     responseDate?: string;
-    topics?: { id: string; name: string }[];
+    topics?: string[];
     selectedTopics?: string[];
 }
 
 type TabType = 'pending' | 'accepted' | 'rejected';
 
 const InvitationListPage = () => {
-    // Use mock data
-    const invitationsData = mockInvitations;
+    // Use real API
+    const { data: invitationsData, isLoading, refetch } = useGetInvitationsQuery();
+    const [updateInvitationStatus] = useUpdateInvitationStatusMutation();
+    const navigate = useNavigate();
+    
     const [activeTab, setActiveTab] = useState<TabType>('pending');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
-    const [showTopicModal, setShowTopicModal] = useState(false);
-    const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [isSubmittingAction, setIsSubmittingAction] = useState(false);
 
-    // Parse invitations
+    // Parse invitations from API
     const invitations: Invitation[] = Array.isArray(invitationsData)
         ? invitationsData.map((item: any) => ({
             id: item.id || item.uuid || '',
@@ -50,13 +53,17 @@ const InvitationListPage = () => {
             conferenceId: item.conferenceId || item.conference?.id || '',
             conference: item.conference,
             conferenceName: item.conferenceName || item.conference?.name || 'Unknown',
-            status: item.status || 'PENDING',
+            status: (item.status || 'pending').toUpperCase() as 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED',
             invitationDate: item.invitationDate || item.createdAt || new Date().toISOString(),
             responseDate: item.responseDate || item.updatedAt,
-            topics: item.topics || item.conference?.topics || [],
+            topics: Array.isArray(item.topics)
+                ? item.topics.map((t: any) => String(t))
+                : Array.isArray(item.conference?.topics)
+                    ? item.conference.topics.map((t: any) => String(t))
+                    : [],
             selectedTopics: item.selectedTopics || [],
         }))
-        : (invitationsData as any)?.data || [];
+        : [];
 
     // Filter invitations by tab and search
     const filteredInvitations = invitations.filter((inv) => {
@@ -125,51 +132,36 @@ const InvitationListPage = () => {
     };
 
     const handleAcceptClick = (invitation: Invitation) => {
-        if (invitation.topics && invitation.topics.length > 0) {
-            setSelectedInvitation(invitation);
-            setSelectedTopics([]);
-            setShowTopicModal(true);
-        } else {
-            handleConfirmAction('ACCEPT');
-        }
-    };
-
-    const handleConfirmTopics = async () => {
-        if (selectedInvitation && selectedTopics.length > 0) {
-            setIsSubmittingAction(true);
-            try {
-                // TODO: Call API to accept invitation with topics
-                // await acceptInvitation({ invitationId: selectedInvitation.id, topics: selectedTopics });
-                await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
-                setShowTopicModal(false);
-                // Refetch invitations
-                alert('Bạn đã chấp nhận lời mời và chọn chuyên đề');
-            } catch (error) {
-                alert('Có lỗi xảy ra khi chấp nhận lời mời');
-            } finally {
-                setIsSubmittingAction(false);
-            }
-        } else {
-            alert('Vui lòng chọn ít nhất một chuyên đề');
-        }
+        setSelectedInvitation(invitation);
+        handleConfirmAction('accept');
     };
 
     const handleRejectClick = (invitation: Invitation) => {
-        if (window.confirm(`Bạn có chắc chắn muốn từ chối lời mời từ ${invitation.conferenceName}?`)) {
-            handleConfirmAction('REJECT');
-        }
+        setSelectedInvitation(invitation);
+        handleConfirmAction('reject');
     };
 
-    const handleConfirmAction = async (action: string) => {
+    const handleConfirmAction = async (action: 'accept' | 'reject') => {
+        if (!selectedInvitation) return;
+        
         setIsSubmittingAction(true);
         try {
-            // TODO: Call API for action
-            // await updateInvitation({ invitationId: selectedInvitation?.id, status: action });
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
-            alert(`Lời mời đã được ${action === 'ACCEPT' ? 'chấp nhận' : 'từ chối'}`);
-            // Refetch invitations
+            // Call API for action
+            await updateInvitationStatus({
+                invitationId: selectedInvitation.id,
+                action,
+            }).unwrap();
+            
+            refetch();
+            showToast[action === 'accept' ? 'success' : 'info'](
+                action === 'accept'
+                    ? 'Đã chấp nhận lời mời thành công'
+                    : 'Đã từ chối lời mời'
+            );
+            setSelectedInvitation(null);
         } catch (error) {
-            alert('Có lỗi xảy ra');
+            showToast.error('Có lỗi xảy ra khi cập nhật lời mời');
+            console.error(error);
         } finally {
             setIsSubmittingAction(false);
         }
@@ -272,7 +264,11 @@ const InvitationListPage = () => {
             {/* Content */}
             <div className="py-8 px-6">
                 <div className="max-w-7xl mx-auto">
-                    {filteredInvitations.length === 0 ? (
+                    {isLoading ? (
+                        <div className="bg-white rounded-xl shadow-md p-12 flex justify-center items-center min-h-96">
+                            <CircularProgress />
+                        </div>
+                    ) : filteredInvitations.length === 0 ? (
                         <div className="bg-white rounded-xl shadow-md p-12 text-center">
                             <MailOutline className="w-20 h-20 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -397,9 +393,13 @@ const InvitationListPage = () => {
                                                     </button>
                                                 </>
                                             )}
-                                            {invitation.status !== 'PENDING' && (
-                                                <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold flex items-center gap-2">
+                                            {invitation.status === 'ACCEPTED' && invitation.topics && invitation.topics.length > 0 && (
+                                                <button
+                                                    onClick={() => navigate(`/reviewer/invitations/${invitation.id}/topics`)}
+                                                    className="px-4 py-2 bg-[#008689] text-white rounded-lg hover:bg-[#006666] transition-colors font-semibold flex items-center gap-2"
+                                                >
                                                     <MoreVert className="w-4 h-4" />
+                                                    Khai báo chuyên môn
                                                 </button>
                                             )}
                                         </div>
@@ -410,102 +410,6 @@ const InvitationListPage = () => {
                     )}
                 </div>
             </div>
-
-            {/* Topic Selection Modal */}
-            {showTopicModal && selectedInvitation && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
-                        {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-[#008689] to-[#006666] px-8 py-6 flex items-center justify-between">
-                            <div>
-                                <h2 className="text-2xl font-bold text-white">Chọn chuyên đề</h2>
-                                <p className="text-white/90 text-sm">
-                                    {selectedInvitation.conferenceName}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowTopicModal(false)}
-                                className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
-                            >
-                                <CloseIcon className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        {/* Modal Content */}
-                        <div className="px-8 py-6">
-                            <p className="text-gray-700 mb-6">
-                                Vui lòng chọn một hoặc nhiều chuyên đề bạn có thể đánh giá:
-                            </p>
-
-                            {selectedInvitation.topics && selectedInvitation.topics.length > 0 ? (
-                                <div className="space-y-3 max-h-96 overflow-y-auto mb-6">
-                                    {selectedInvitation.topics.map((topic) => (
-                                        <label
-                                            key={topic.id}
-                                            className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedTopics.includes(topic.id)}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setSelectedTopics((prev) => [...prev, topic.id]);
-                                                    } else {
-                                                        setSelectedTopics((prev) =>
-                                                            prev.filter((id) => id !== topic.id)
-                                                        );
-                                                    }
-                                                }}
-                                                className="w-5 h-5 rounded accent-[#008689]"
-                                            />
-                                            <span className="font-medium text-gray-900">{topic.name}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                                    <Info className="w-5 h-5 text-blue-600 inline mr-2" />
-                                    <span className="text-blue-900">
-                                        Không có chuyên đề nào cho hội nghị này
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Selected count */}
-                            <div className="text-sm text-gray-600 mb-6">
-                                Đã chọn: <span className="font-semibold">{selectedTopics.length}</span> chuyên đề
-                            </div>
-
-                            {/* Modal Actions */}
-                            <div className="flex gap-4 justify-end">
-                                <button
-                                    onClick={() => setShowTopicModal(false)}
-                                    className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={handleConfirmTopics}
-                                    disabled={isSubmittingAction || selectedTopics.length === 0}
-                                    className="px-6 py-2 bg-[#008689] text-white rounded-lg hover:bg-[#006666] transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                >
-                                    {isSubmittingAction ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            Đang xử lý...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle className="w-5 h-5" />
-                                            Chấp nhận & Xác nhận
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

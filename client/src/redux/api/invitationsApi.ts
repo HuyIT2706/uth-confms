@@ -60,6 +60,16 @@ export const invitationsApi = createApi({
             invalidatesTags: ['Invitations', 'AcceptedReviewers'],
         }),
 
+        // Reviewer khai báo chuyên môn (topics) của mình cho hội nghị (PUT /api/reviewer/invitations/:id/topics)
+        updateInvitationTopics: builder.mutation<any, { invitationId: string; topics: string[] }>({
+            query: ({ invitationId, topics }) => ({
+                url: `reviewer/invitations/${invitationId}/topics`,
+                method: 'PUT',
+                body: { topics },
+            }),
+            invalidatesTags: ['Invitations'],
+        }),
+
         // Chair mời reviewer (POST /api/invitations/invite)
         inviteReviewer: builder.mutation<void, InviteReviewerBody>({
             query: (body) => ({
@@ -159,4 +169,5 @@ export const {
     useRemoveInvitationMutation,
     useGetInvitationsQuery,
     useUpdateInvitationStatusMutation,
+    useUpdateInvitationTopicsMutation,
 } = invitationsApi;

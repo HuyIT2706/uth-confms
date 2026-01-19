@@ -35,6 +35,7 @@ import ReviewAssignmentListPage from '../pages/reviewer/ReviewAssignmentListPage
 import ReviewDetailPage from '../pages/reviewer/ReviewDetailPage.tsx';
 import InvitationListPage from '../pages/reviewer/InvitationListPage.tsx';
 import MyReviewsPage from '../pages/reviewer/MyReviewsPage.tsx';
+import InvitationTopicsPage from '../pages/reviewer/InvitationTopicsPage.tsx';
 
 const appRouter = createBrowserRouter([
   {
@@ -120,6 +121,10 @@ const appRouter = createBrowserRouter([
       {
         path: 'reviewer/invitations',
         element: <InvitationListPage />,
+      },
+      {
+        path: 'reviewer/invitations/:id/topics',
+        element: <InvitationTopicsPage />,
       },
       {
         path: 'reviewer/my-reviews',
