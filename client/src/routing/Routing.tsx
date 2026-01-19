@@ -30,6 +30,7 @@ import PlatformSettingsPage from '../pages/admin/PlatformSettingsPage.tsx';
 import AuditLogsPage from '../pages/admin/AuditLogsPage.tsx';
 import ProfilePage from '../pages/admin/profile/ProfilePage.tsx';
 import ChangePasswordPage from '../pages/admin/profile/ChangePasswordPage.tsx';
+import ReviewerDashboard from '../pages/reviewer/ReviewerDashboard.tsx';
 
 const appRouter = createBrowserRouter([
   {
@@ -99,6 +100,14 @@ const appRouter = createBrowserRouter([
       {
         path: 'change-password',
         element: <ChangePasswordPage />,
+      },
+      {
+        path: 'reviewer/dashboard',
+        element: <ReviewerDashboard />,
+      },
+      {
+        path: 'reviewer/assignments/:id',
+        element: <ReviewerDashboard />, // TODO: Create ReviewerAssignmentDetailPage
       },
       {
         path: 'chair/conferences/create',

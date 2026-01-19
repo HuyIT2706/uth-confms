@@ -42,9 +42,24 @@ export const invitationsApi = createApi({
         timeout: 15000, // Tăng timeout tránh lỗi chậm
     }),
 
-    tagTypes: ['AcceptedReviewers'], // Tag để invalidate khi invite/remove
+    tagTypes: ['AcceptedReviewers', 'Invitations'], // Tag để invalidate khi invite/remove
 
     endpoints: (builder) => ({
+        // Reviewer xem danh sách lời mời của mình (GET /api/reviewer/invitations)
+        getInvitations: builder.query<any[], void>({
+            query: () => 'reviewer/invitations',
+            providesTags: ['Invitations'],
+        }),
+
+        // Reviewer cập nhật trạng thái lời mời (POST /api/reviewer/invitations/:id/accept hoặc /reject)
+        updateInvitationStatus: builder.mutation<any, { invitationId: string; action: 'accept' | 'reject' }>({
+            query: ({ invitationId, action }) => ({
+                url: `reviewer/invitations/${invitationId}/${action}`,
+                method: 'POST',
+            }),
+            invalidatesTags: ['Invitations', 'AcceptedReviewers'],
+        }),
+
         // Chair mời reviewer (POST /api/invitations/invite)
         inviteReviewer: builder.mutation<void, InviteReviewerBody>({
             query: (body) => ({
@@ -142,4 +157,6 @@ export const {
     useGetAcceptedReviewersQuery,
     useLazyGetAcceptedReviewersQuery, // Nếu cần load thủ công
     useRemoveInvitationMutation,
+    useGetInvitationsQuery,
+    useUpdateInvitationStatusMutation,
 } = invitationsApi;

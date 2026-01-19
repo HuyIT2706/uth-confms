@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AuthorDashboard from './AuthorDashboard';
 import ChairDashboard from './ChairDashboard';
 import AdminDashboard from './AdminDashboard';
+import ReviewerDashboard from '../reviewer/ReviewerDashboard';
 
 type UserRole = 'AUTHOR' | 'CHAIR' | 'REVIEWER' | 'ADMIN';
 
@@ -35,8 +36,7 @@ const HomePage = () => {
             case 'CHAIR':
                 return <ChairDashboard currentRole={currentRole} />;
             case 'REVIEWER':
-                // TODO: Create ReviewerDashboard
-                return <AuthorDashboard />;
+                return <ReviewerDashboard />;
             case 'ADMIN':
                 // For admin we want the same UI as Chair but admin will have extra user management links
                 return <ChairDashboard currentRole={currentRole} />;
