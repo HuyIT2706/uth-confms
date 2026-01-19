@@ -51,8 +51,8 @@ export const invitationsApi = createApi({
             providesTags: ['Invitations'],
         }),
 
-        // Reviewer cập nhật trạng thái lời mời (POST /api/reviewer/invitations/:id/accept hoặc /reject)
-        updateInvitationStatus: builder.mutation<any, { invitationId: string; action: 'accept' | 'reject' }>({
+        // Reviewer cập nhật trạng thái lời mời (POST /api/reviewer/invitations/:id/accept, /reject, hoặc /pending)
+        updateInvitationStatus: builder.mutation<any, { invitationId: string; action: 'accept' | 'reject' | 'pending' }>({
             query: ({ invitationId, action }) => ({
                 url: `reviewer/invitations/${invitationId}/${action}`,
                 method: 'POST',

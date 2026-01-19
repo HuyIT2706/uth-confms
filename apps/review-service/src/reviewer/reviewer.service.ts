@@ -88,6 +88,11 @@ export class ReviewerService {
     const inv = await this.repo.findOne({ where: [{ id }, { externalInvitationId: id }] });
     if (!inv) return null;
     inv.status = status;
+    // Khi revert về pending, clear reviewerTopics để reviewer phải khai báo lại
+    if (status === 'pending') {
+      inv.reviewerTopics = null;
+      this.logger.log(`Reverted invitation ${id} to pending, cleared reviewerTopics`);
+    }
     const saved = await this.repo.save(inv);
     this.notifyExternal(saved).catch((e) => this.logger.warn(`Notify failed: ${e?.message || e}`));
     return saved;

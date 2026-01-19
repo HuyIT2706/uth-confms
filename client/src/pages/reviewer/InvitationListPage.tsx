@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     MailOutline,
     CheckCircle,
@@ -8,6 +8,12 @@ import {
     Info,
     CalendarToday,
     Search,
+    ArrowBack,
+    Visibility,
+    Description,
+    Event,
+    Schedule,
+    School,
 } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { useGetInvitationsQuery, useUpdateInvitationStatusMutation } from '../../redux/api/invitationsApi';
@@ -25,11 +31,21 @@ interface Invitation {
         endDate?: string;
     };
     conferenceName: string;
+    acronym?: string;
+    conferenceDescription?: string;
+    startDate?: string;
+    endDate?: string;
+    deadlines?: {
+        submission?: string;
+        review?: string;
+        cameraReady?: string;
+    };
     status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED';
     invitationDate: string;
     responseDate?: string;
     topics?: string[];
     selectedTopics?: string[];
+    raw?: any;
 }
 
 type TabType = 'pending' | 'accepted' | 'rejected';
@@ -39,11 +55,24 @@ const InvitationListPage = () => {
     const { data: invitationsData, isLoading, refetch } = useGetInvitationsQuery();
     const [updateInvitationStatus] = useUpdateInvitationStatusMutation();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     
-    const [activeTab, setActiveTab] = useState<TabType>('pending');
+    // Lấy tab từ URL query param, mặc định là 'pending'
+    const tabFromUrl = (searchParams.get('tab') || 'pending') as TabType;
+    const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
+
+    // Sync activeTab với URL query param
+    useEffect(() => {
+        const tab = (searchParams.get('tab') || 'pending') as TabType;
+        if (['pending', 'accepted', 'rejected'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
     const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [detailInvitation, setDetailInvitation] = useState<Invitation | null>(null);
 
     // Parse invitations from API
     const invitations: Invitation[] = Array.isArray(invitationsData)
@@ -52,7 +81,12 @@ const InvitationListPage = () => {
             uuid: item.uuid,
             conferenceId: item.conferenceId || item.conference?.id || '',
             conference: item.conference,
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown',
+            conferenceName: item.conferenceName || item.conference?.name || item.raw?.conference?.name || 'Unknown',
+            acronym: item.acronym || item.conference?.acronym || item.raw?.conference?.acronym,
+            conferenceDescription: item.conferenceDescription || item.conference?.description || item.raw?.conference?.description,
+            startDate: item.startDate || item.conference?.startDate || item.raw?.conference?.startDate,
+            endDate: item.endDate || item.conference?.endDate || item.raw?.conference?.endDate,
+            deadlines: item.deadlines || item.raw?.conference?.deadlines,
             status: (item.status || 'pending').toUpperCase() as 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED',
             invitationDate: item.invitationDate || item.createdAt || new Date().toISOString(),
             responseDate: item.responseDate || item.updatedAt,
@@ -60,8 +94,14 @@ const InvitationListPage = () => {
                 ? item.topics.map((t: any) => String(t))
                 : Array.isArray(item.conference?.topics)
                     ? item.conference.topics.map((t: any) => String(t))
-                    : [],
-            selectedTopics: item.selectedTopics || [],
+                    : Array.isArray(item.raw?.conference?.topics)
+                        ? item.raw.conference.topics.map((t: any) => String(t))
+                        : [],
+            // Chỉ hiển thị selectedTopics khi status không phải PENDING
+            selectedTopics: (item.status || 'pending').toLowerCase() === 'pending' 
+                ? [] 
+                : (item.selectedTopics || item.reviewerTopics || []),
+            raw: item.raw,
         }))
         : [];
 
@@ -141,7 +181,17 @@ const InvitationListPage = () => {
         handleConfirmAction('reject');
     };
 
-    const handleConfirmAction = async (action: 'accept' | 'reject') => {
+    const handleRevertToPendingClick = (invitation: Invitation) => {
+        setSelectedInvitation(invitation);
+        handleConfirmAction('pending');
+    };
+
+    const handleViewDetails = (invitation: Invitation) => {
+        setDetailInvitation(invitation);
+        setShowDetailModal(true);
+    };
+
+    const handleConfirmAction = async (action: 'accept' | 'reject' | 'pending') => {
         if (!selectedInvitation) return;
         
         setIsSubmittingAction(true);
@@ -153,11 +203,12 @@ const InvitationListPage = () => {
             }).unwrap();
             
             refetch();
-            showToast[action === 'accept' ? 'success' : 'info'](
-                action === 'accept'
-                    ? 'Đã chấp nhận lời mời thành công'
-                    : 'Đã từ chối lời mời'
-            );
+            const messages = {
+                accept: 'Đã chấp nhận lời mời thành công',
+                reject: 'Đã từ chối lời mời',
+                pending: 'Đã đưa lời mời về trạng thái chưa trả lời',
+            };
+            showToast[action === 'accept' ? 'success' : 'info'](messages[action]);
             setSelectedInvitation(null);
         } catch (error) {
             showToast.error('Có lỗi xảy ra khi cập nhật lời mời');
@@ -219,7 +270,10 @@ const InvitationListPage = () => {
                     {/* Tabs */}
                     <div className="flex gap-2 border-b border-gray-200">
                         <button
-                            onClick={() => setActiveTab('pending')}
+                            onClick={() => {
+                                setActiveTab('pending');
+                                setSearchParams({ tab: 'pending' });
+                            }}
                             className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
                                 activeTab === 'pending'
                                     ? 'text-[#008689] border-[#008689]'
@@ -232,7 +286,10 @@ const InvitationListPage = () => {
                             </span>
                         </button>
                         <button
-                            onClick={() => setActiveTab('accepted')}
+                            onClick={() => {
+                                setActiveTab('accepted');
+                                setSearchParams({ tab: 'accepted' });
+                            }}
                             className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
                                 activeTab === 'accepted'
                                     ? 'text-[#008689] border-[#008689]'
@@ -245,7 +302,10 @@ const InvitationListPage = () => {
                             </span>
                         </button>
                         <button
-                            onClick={() => setActiveTab('rejected')}
+                            onClick={() => {
+                                setActiveTab('rejected');
+                                setSearchParams({ tab: 'rejected' });
+                            }}
                             className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
                                 activeTab === 'rejected'
                                     ? 'text-[#008689] border-[#008689]'
@@ -363,7 +423,15 @@ const InvitationListPage = () => {
                                         )}
 
                                         {/* Action Buttons */}
-                                        <div className="flex items-center justify-end gap-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <button
+                                                onClick={() => handleViewDetails(invitation)}
+                                                className="px-4 py-2 border-2 border-[#008689] text-[#008689] rounded-lg hover:bg-[#008689]/10 transition-colors font-semibold flex items-center gap-2"
+                                            >
+                                                <Visibility className="w-4 h-4" />
+                                                Xem chi tiết
+                                            </button>
+                                            <div className="flex items-center gap-3">
                                             {invitation.status === 'PENDING' && (
                                                 <>
                                                     <button
@@ -393,15 +461,38 @@ const InvitationListPage = () => {
                                                     </button>
                                                 </>
                                             )}
-                                            {invitation.status === 'ACCEPTED' && invitation.topics && invitation.topics.length > 0 && (
+                                            {invitation.status === 'ACCEPTED' && (
+                                                <div className="flex items-center gap-3">
+                                                    {invitation.topics && invitation.topics.length > 0 && (
+                                                        <button
+                                                            onClick={() => navigate(`/reviewer/invitations/${invitation.id}/topics`)}
+                                                            className="px-4 py-2 bg-[#008689] text-white rounded-lg hover:bg-[#006666] transition-colors font-semibold flex items-center gap-2"
+                                                        >
+                                                            <MoreVert className="w-4 h-4" />
+                                                            Khai báo chuyên môn
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleRevertToPendingClick(invitation)}
+                                                        disabled={isSubmittingAction}
+                                                        className="px-4 py-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-semibold disabled:opacity-50 flex items-center gap-2"
+                                                    >
+                                                        <ArrowBack className="w-4 h-4" />
+                                                        Về trạng thái chưa trả lời
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {invitation.status === 'REJECTED' && (
                                                 <button
-                                                    onClick={() => navigate(`/reviewer/invitations/${invitation.id}/topics`)}
-                                                    className="px-4 py-2 bg-[#008689] text-white rounded-lg hover:bg-[#006666] transition-colors font-semibold flex items-center gap-2"
+                                                    onClick={() => handleRevertToPendingClick(invitation)}
+                                                    disabled={isSubmittingAction}
+                                                    className="px-4 py-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-semibold disabled:opacity-50 flex items-center gap-2"
                                                 >
-                                                    <MoreVert className="w-4 h-4" />
-                                                    Khai báo chuyên môn
+                                                    <ArrowBack className="w-4 h-4" />
+                                                    Về trạng thái chưa trả lời
                                                 </button>
                                             )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -410,6 +501,182 @@ const InvitationListPage = () => {
                     )}
                 </div>
             </div>
+
+            {/* Detail Modal */}
+            {showDetailModal && detailInvitation && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDetailModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-[#008689] to-[#006666] px-6 py-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Info className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Chi tiết hội nghị</h2>
+                                    <p className="text-white/90 text-sm">
+                                        {detailInvitation.conferenceName}
+                                        {detailInvitation.acronym && ` (${detailInvitation.acronym})`}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+                            >
+                                <CloseIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="overflow-y-auto flex-1 p-6">
+                            <div className="space-y-6">
+                                {/* Description */}
+                                {detailInvitation.conferenceDescription && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Description className="w-5 h-5 text-[#008689]" />
+                                            <h3 className="text-lg font-bold text-gray-900">Mô tả</h3>
+                                        </div>
+                                        <p className="text-gray-700 leading-relaxed">
+                                            {detailInvitation.conferenceDescription}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Dates */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {detailInvitation.startDate && (
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Event className="w-5 h-5 text-[#008689]" />
+                                                <h4 className="font-semibold text-gray-900">Ngày bắt đầu</h4>
+                                            </div>
+                                            <p className="text-gray-700">{formatDate(detailInvitation.startDate)}</p>
+                                        </div>
+                                    )}
+                                    {detailInvitation.endDate && (
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Event className="w-5 h-5 text-[#008689]" />
+                                                <h4 className="font-semibold text-gray-900">Ngày kết thúc</h4>
+                                            </div>
+                                            <p className="text-gray-700">{formatDate(detailInvitation.endDate)}</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Deadlines */}
+                                {detailInvitation.deadlines && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Schedule className="w-5 h-5 text-[#008689]" />
+                                            <h3 className="text-lg font-bold text-gray-900">Thời hạn</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {detailInvitation.deadlines.submission && (
+                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                    <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Nộp bài</p>
+                                                    <p className="text-blue-900 font-medium">{formatDate(detailInvitation.deadlines.submission)}</p>
+                                                </div>
+                                            )}
+                                            {detailInvitation.deadlines.review && (
+                                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                                    <p className="text-xs font-semibold text-orange-700 uppercase mb-1">Đánh giá</p>
+                                                    <p className="text-orange-900 font-medium">{formatDate(detailInvitation.deadlines.review)}</p>
+                                                </div>
+                                            )}
+                                            {detailInvitation.deadlines.cameraReady && (
+                                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                    <p className="text-xs font-semibold text-green-700 uppercase mb-1">Camera Ready</p>
+                                                    <p className="text-green-900 font-medium">{formatDate(detailInvitation.deadlines.cameraReady)}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Topics */}
+                                {detailInvitation.topics && detailInvitation.topics.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <School className="w-5 h-5 text-[#008689]" />
+                                            <h3 className="text-lg font-bold text-gray-900">Chuyên đề</h3>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {detailInvitation.topics.map((topic, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="px-4 py-2 bg-gradient-to-r from-[#008689] to-[#006666] text-white rounded-lg text-sm font-medium"
+                                                >
+                                                    {topic}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Invitation Info */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <p className="text-gray-500 mb-1">Ngày nhận lời mời</p>
+                                            <p className="font-medium text-gray-900">{formatDate(detailInvitation.invitationDate)}</p>
+                                        </div>
+                                        {detailInvitation.responseDate && (
+                                            <div>
+                                                <p className="text-gray-500 mb-1">Ngày phản hồi</p>
+                                                <p className="font-medium text-gray-900">{formatDate(detailInvitation.responseDate)}</p>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="text-gray-500 mb-1">Trạng thái</p>
+                                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(detailInvitation.status)}`}>
+                                                {getStatusIcon(detailInvitation.status)}
+                                                {getStatusLabel(detailInvitation.status)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+                            >
+                                Đóng
+                            </button>
+                            {detailInvitation.status === 'PENDING' && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setShowDetailModal(false);
+                                            handleRejectClick(detailInvitation);
+                                        }}
+                                        className="px-6 py-2 border-2 border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-semibold flex items-center gap-2"
+                                    >
+                                        <CloseIcon className="w-4 h-4" />
+                                        Từ chối
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowDetailModal(false);
+                                            handleAcceptClick(detailInvitation);
+                                        }}
+                                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2"
+                                    >
+                                        <CheckCircle className="w-4 h-4" />
+                                        Chấp nhận
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
