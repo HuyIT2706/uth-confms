@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useGetMyAssignmentsQuery } from '../../redux/api/reviewsApi';
 import { useGetInvitationsQuery } from '../../redux/api/invitationsApi';
+import { mockAssignments, mockInvitations, mockDashboardStats } from '../../mockData/reviewerMockData';
 
 // Local interfaces for this component
 interface ReviewAssignmentDisplay {
@@ -31,57 +32,31 @@ interface InvitationDisplay {
 }
 
 const ReviewerDashboard = () => {
-    // Fetch data from APIs
-    const { data: assignmentsData } = useGetMyAssignmentsQuery();
-    const { data: invitationsData } = useGetInvitationsQuery();
+    // Use mock data instead of API
+    const assignments: ReviewAssignmentDisplay[] = mockAssignments.map((item: any) => ({
+        id: item.id || item.uuid || '',
+        submissionId: item.submissionId || item.submission?.id || '',
+        submissionTitle: item.submissionTitle || item.submission?.title || 'Untitled',
+        conferenceId: item.conferenceId || item.conference?.id || '',
+        conferenceName: item.conferenceName || item.conference?.name || 'Unknown Conference',
+        status: item.status || 'PENDING',
+        deadline: item.deadline || new Date().toISOString(),
+    }));
 
-    // Parse assignments
-    const assignments: ReviewAssignmentDisplay[] = Array.isArray(assignmentsData)
-        ? assignmentsData.map((item: any) => ({
-            id: item.id || item.uuid || '',
-            submissionId: item.submissionId || item.submission?.id || '',
-            submissionTitle: item.submissionTitle || item.submission?.title || 'Untitled',
-            conferenceId: item.conferenceId || item.conference?.id || '',
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown Conference',
-            status: item.status || 'PENDING',
-            deadline: item.deadline || new Date().toISOString(),
-        }))
-        : (assignmentsData as any)?.data
-        ? (assignmentsData as any).data.map((item: any) => ({
-            id: item.id || item.uuid || '',
-            submissionId: item.submissionId || item.submission?.id || '',
-            submissionTitle: item.submissionTitle || item.submission?.title || 'Untitled',
-            conferenceId: item.conferenceId || item.conference?.id || '',
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown Conference',
-            status: item.status || 'PENDING',
-            deadline: item.deadline || new Date().toISOString(),
-        }))
-        : [];
+    const invitations: InvitationDisplay[] = mockInvitations.map((item: any) => ({
+        id: item.id || item.uuid || '',
+        conferenceId: item.conferenceId || item.conference?.id || '',
+        conferenceName: item.conferenceName || item.conference?.name || 'Unknown',
+        status: (item.status || 'pending').toLowerCase(),
+        createdAt: item.invitationDate || new Date().toISOString(),
+    }));
 
-    // Parse invitations
-    const invitations: InvitationDisplay[] = Array.isArray(invitationsData)
-        ? invitationsData.map((item: any) => ({
-            id: item.id || item.uuid || '',
-            conferenceId: item.conferenceId || item.conference?.id || '',
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown',
-            status: item.status || 'pending',
-            createdAt: item.createdAt || new Date().toISOString(),
-        }))
-        : (invitationsData as any)?.data
-        ? (invitationsData as any).data.map((item: any) => ({
-            id: item.id || item.uuid || '',
-            conferenceId: item.conferenceId || item.conference?.id || '',
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown',
-            status: item.status || 'pending',
-            createdAt: item.createdAt || new Date().toISOString(),
-        }))
-        : [];
-
-    // Calculate stats
-    const totalAssignments = assignments.length;
-    const completedReviews = assignments.filter((a) => a.status === 'COMPLETED').length;
-    const pendingReviews = assignments.filter((a) => a.status === 'PENDING' || a.status === 'ACCEPTED').length;
-    const acceptedInvitations = invitations.filter((i) => i.status === 'accepted').length;
+    // Use mock stats
+    const stats = mockDashboardStats;
+    const totalAssignments = stats.totalAssignments;
+    const completedReviews = stats.completedReviews;
+    const pendingReviews = stats.pendingReviews;
+    const acceptedInvitations = stats.acceptedInvitations;
 
     // Get display data
     const recentAssignments = assignments.slice(0, 3);

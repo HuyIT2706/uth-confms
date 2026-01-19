@@ -31,6 +31,10 @@ import AuditLogsPage from '../pages/admin/AuditLogsPage.tsx';
 import ProfilePage from '../pages/admin/profile/ProfilePage.tsx';
 import ChangePasswordPage from '../pages/admin/profile/ChangePasswordPage.tsx';
 import ReviewerDashboard from '../pages/reviewer/ReviewerDashboard.tsx';
+import ReviewAssignmentListPage from '../pages/reviewer/ReviewAssignmentListPage.tsx';
+import ReviewDetailPage from '../pages/reviewer/ReviewDetailPage.tsx';
+import InvitationListPage from '../pages/reviewer/InvitationListPage.tsx';
+import MyReviewsPage from '../pages/reviewer/MyReviewsPage.tsx';
 
 const appRouter = createBrowserRouter([
   {
@@ -106,8 +110,20 @@ const appRouter = createBrowserRouter([
         element: <ReviewerDashboard />,
       },
       {
+        path: 'reviewer/assignments',
+        element: <ReviewAssignmentListPage />,
+      },
+      {
         path: 'reviewer/assignments/:id',
-        element: <ReviewerDashboard />, // TODO: Create ReviewerAssignmentDetailPage
+        element: <ReviewDetailPage />,
+      },
+      {
+        path: 'reviewer/invitations',
+        element: <InvitationListPage />,
+      },
+      {
+        path: 'reviewer/my-reviews',
+        element: <MyReviewsPage />,
       },
       {
         path: 'chair/conferences/create',
