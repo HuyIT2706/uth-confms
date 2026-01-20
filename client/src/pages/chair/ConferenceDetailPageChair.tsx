@@ -441,7 +441,7 @@ const ConferenceDetailPageChair = () => {
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900 mb-3">Tracks</h3>
                                     <div className="flex flex-wrap gap-2">
-                                        {conference.tracks.map((track, idx) => (
+                                        {conference.tracks.map((track: any, idx: number) => (
                                             <span
                                                 key={idx}
                                                 className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium"

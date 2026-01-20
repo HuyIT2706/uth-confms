@@ -9,11 +9,13 @@ import {
     AssignmentInd,
     Check,
     Close,
+    Assignment
 } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { useGetMyAssignmentsQuery } from '../../redux/api/reviewsApi';
 import { useGetInvitationsQuery, useUpdateInvitationStatusMutation } from '../../redux/api/invitationsApi';
 import { showToast } from '../../utils/toast';
+
 
 // Local interfaces for this component
 interface ReviewAssignmentDisplay {
@@ -159,15 +161,23 @@ const ReviewerDashboard = () => {
                                 className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
                             >
                                 <AssignmentInd className="w-5 h-5 mr-2" />
-                                Xem tất cả bài được giao
+                                Xem lời mời phân công đánh giá bài báo
                             </Link>
                             <Link
                                 to="/reviewer/invitations"
-                                className="inline-flex items-center px-8 py-4 bg-white/20 text-white hover:bg-white/30 font-semibold rounded-lg transition-all duration-200 border border-white/30"
+                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
                             >
                                 <MailOutline className="w-5 h-5 mr-2" />
-                                Lời mời hội nghị
+                                Xem lời mời tham gia hội nghị
                             </Link>
+                            <Link
+  to="/reviewer/assignments"
+  className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+>
+  <Assignment className="w-5 h-5 mr-2" />
+  Xem danh sách bài được giao
+</Link>
+
                         </div>
                     </div>
                 </div>

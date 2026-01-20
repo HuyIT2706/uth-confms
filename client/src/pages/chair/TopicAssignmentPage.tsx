@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, MouseEvent } from 'react';
-import { Search, Person, Assignment, AutoAwesome, FilterList, Delete } from '@mui/icons-material';
+import { useState, useEffect, useMemo, type MouseEvent } from 'react';
+import { Assignment, AutoAwesome, Delete } from '@mui/icons-material';
 import bgUth from '../../assets/bg_uth.svg';
 
 // ── API hooks ──
@@ -22,7 +22,7 @@ const TopicAssignmentPage = () => {
         data: conferences = [],
         isLoading: loadingConfs,
         isError: confError,
-    } = useGetConferencesQuery({});
+    } = useGetConferencesQuery(undefined);
 
     useEffect(() => {
         if (conferences.length === 1 && !selectedConferenceId) {
@@ -43,7 +43,7 @@ const TopicAssignmentPage = () => {
     // Lấy thông tin user cho các reviewer đã chấp nhận để hiển thị tên/email
     const shouldLoadReviewers = acceptedReviewers.length > 0;
     const { data: reviewers = [] } = useSearchReviewersQuery(
-        { q: undefined, page: 1, limit: 200 },
+        { search: undefined, limit: 200 },
         { skip: !shouldLoadReviewers },
     );
 

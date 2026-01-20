@@ -224,9 +224,9 @@ const InvitationListPage = () => {
             <div className="bg-gradient-to-br from-[#008689] to-[#006666] py-12 px-6">
                 <div className="max-w-7xl mx-auto">
                     <div className="mb-8">
-                        <h1 className="text-4xl font-bold text-white mb-2">Lời mời hội nghị</h1>
+                        <h1 className="text-4xl font-bold text-white mb-2">Danh sách lời mời tham gia hội nghị</h1>
                         <p className="text-white/90">
-                            Quản lý lời mời tham gia đánh giá từ các hội nghị khoa học
+                            
                         </p>
                     </div>
 

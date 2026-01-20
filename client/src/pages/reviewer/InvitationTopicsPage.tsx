@@ -90,14 +90,6 @@ export default function InvitationTopicsPage() {
       return prev.filter((t) => t !== topic);
     });
   };
-
-  const handleOtherToggle = (checked: boolean) => {
-    setShowOtherInput(checked);
-    if (!checked) {
-      setOtherInput('');
-    }
-  };
-
   const addCustomTopic = () => {
     const trimmed = otherInput.trim();
     

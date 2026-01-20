@@ -10,15 +10,6 @@ import {
 } from '../../redux/api/invitationsApi';
 import { useSearchReviewersQuery } from '../../redux/api/usersApi';
 
-interface AcceptedReviewer {
-    invitationId: string;
-    userId: number;
-    acceptedAt?: string;
-    topics?: string[];
-    name?: string;
-    email?: string;
-}
-
 const PCMembersManagementPage = () => {
     const { id: conferenceId } = useParams<{ id: string }>();
     const [showInviteForm, setShowInviteForm] = useState(false);
@@ -52,15 +43,16 @@ const PCMembersManagementPage = () => {
         isLoading: isLoadingReviewers,
         error: reviewersError,
     } = useSearchReviewersQuery(
-        { q: searchTerm || undefined, page: 1, limit: 50 },
+        { search: searchTerm || undefined, limit: 50 },
         { skip: !shouldLoadReviewers }
     );
 
-    const invitedIds = new Set(acceptedReviewers.map((r) => r.userId));
+    const invitedIds = new Set((acceptedReviewers as any[]).map((r: any) => r.userId));
 
     // Map userId → user để hiển thị tên/email cho danh sách đã chấp nhận
     const reviewersById = new Map<number, any>();
-    reviewers.forEach((u: any) => {
+    const reviewersArray = Array.isArray(reviewers) ? reviewers : reviewers?.data || [];
+    (reviewersArray as any[]).forEach((u: any) => {
         reviewersById.set(u.id, u);
     });
 
@@ -206,7 +198,7 @@ const PCMembersManagementPage = () => {
                             <div className="text-red-600 text-sm py-4">
                                 Không thể tải danh sách reviewer. Vui lòng thử lại sau.
                             </div>
-                        ) : reviewers.length === 0 ? (
+                        ) : reviewersArray.length === 0 ? (
                             <div className="text-gray-500 italic py-4">
                                 Không tìm thấy reviewer nào phù hợp với từ khóa.
                             </div>
@@ -223,7 +215,7 @@ const PCMembersManagementPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {reviewers.map((u: any) => {
+                                        {reviewersArray.map((u: any) => {
                                             const name = u.fullName || u.name || `User #${u.id}`;
                                             const email = u.email || '';
                                             const roles: string[] = Array.isArray(u.roles)
@@ -286,8 +278,8 @@ const PCMembersManagementPage = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {acceptedReviewers.length > 0 ? (
-                                    acceptedReviewers.map((member) => {
+                                {(acceptedReviewers as any[]).length > 0 ? (
+                                    (acceptedReviewers as any[]).map((member: any) => {
                                         const acceptedDate = member.acceptedAt ? new Date(member.acceptedAt) : null;
                                         const formattedDate =
                                             acceptedDate && !isNaN(acceptedDate.getTime())
@@ -318,9 +310,9 @@ const PCMembersManagementPage = () => {
                                                     <div className="text-sm text-gray-600">{displayEmail}</div>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-700">
-                                                    {member.topics?.length > 0 ? (
+                                                    {(member.topics && (member.topics as any[]).length > 0) ? (
                                                         <div className="flex flex-wrap gap-1">
-                                                            {member.topics.map((topic, tIdx) => (
+                                                            {(member.topics as any[]).map((topic: any, tIdx: number) => (
                                                                 <span
                                                                     key={`${topic}-${tIdx}`}
                                                                     className="inline-block bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded"

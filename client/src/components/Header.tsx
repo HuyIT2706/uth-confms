@@ -7,8 +7,6 @@ import {
   Notifications,
   Settings,
   MailOutline,
-  CheckCircle,
-  Close as CloseIcon2,
 } from '@mui/icons-material';
 import iconUth from '../assets/icon_uth.svg';
 import { useAuth } from '../hooks/useAuth';
@@ -25,7 +23,7 @@ const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const isLoggedIn = !!isAuthenticated;
   const userName = user?.fullName || user?.email || 'Người dùng';
-  const userRole = user?.role;
+  const userRole = user?.roles?.[0];
   const isReviewer = userRole === 'REVIEWER';
   let isAdmin = false;
 

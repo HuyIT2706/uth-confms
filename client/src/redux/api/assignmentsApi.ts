@@ -1,5 +1,6 @@
 // src/redux/api/assignmentsApi.ts
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import type { ReviewerAssignmentDto } from '../../types/api.types';
 
 // Định nghĩa type cho response từ suggestReviewersForTopic (dựa trên backend trả về)
 interface SuggestedReviewer {
@@ -46,9 +47,10 @@ export const assignmentsApi = createApi({
         timeout: 15000,
     }),
 
-    tagTypes: ['ConferenceAssignments'],
+    tagTypes: ['ConferenceAssignments', 'ReviewerAssignment'],
 
     endpoints: (builder) => ({
+        // ===== CONFERENCE ASSIGNMENTS (từ conference-service) =====
         // Lấy tất cả phân công reviewer theo topic của một conference
         getAssignmentsByConference: builder.query<Assignment[], string>({
             query: (conferenceId) => `assignments/conference/${conferenceId}`,
@@ -69,7 +71,7 @@ export const assignmentsApi = createApi({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: ['ConferenceAssignments'], // Reload danh sách assignments sau khi assign
+            invalidatesTags: ['ConferenceAssignments', 'ReviewerAssignment'], // Reload danh sách assignments sau khi assign
         }),
 
         // Hủy phân công (unassign) một assignment cụ thể
@@ -79,6 +81,67 @@ export const assignmentsApi = createApi({
                 method: 'DELETE',
             }),
             invalidatesTags: ['ConferenceAssignments'], // Reload danh sách sau khi unassign
+        }),
+
+        // ===== REVIEWER ASSIGNMENTS (từ review-service) =====
+        // Lấy danh sách bài báo được phân công cho reviewer hiện tại
+        getMyReviewerAssignments: builder.query<ReviewerAssignmentDto[], void>({
+            query: () => '/reviewer/assignments',
+            providesTags: (_result) =>
+                _result
+                    ? [
+                          ...(_result || []).map(({ conferenceAssignmentId }) => ({
+                              type: 'ReviewerAssignment' as const,
+                              id: conferenceAssignmentId,
+                          })),
+                          { type: 'ReviewerAssignment', id: 'MY_LIST' },
+                      ]
+                    : [{ type: 'ReviewerAssignment', id: 'MY_LIST' }],
+        }),
+
+        // Lấy chi tiết một assignment
+        getReviewerAssignmentDetail: builder.query<ReviewerAssignmentDto, string>({
+            query: (conferenceAssignmentId) =>
+                `/reviewer/assignments/${conferenceAssignmentId}`,
+            providesTags: (_result, _error, conferenceAssignmentId) => [
+                { type: 'ReviewerAssignment', id: conferenceAssignmentId },
+            ],
+        }),
+
+        // Chấp nhận một phân công
+        acceptReviewerAssignment: builder.mutation<ReviewerAssignmentDto, string>({
+            query: (conferenceAssignmentId) => ({
+                url: `/reviewer/assignments/${conferenceAssignmentId}/accept`,
+                method: 'POST',
+            }),
+            invalidatesTags: (_result, _error, conferenceAssignmentId) => [
+                { type: 'ReviewerAssignment', id: conferenceAssignmentId },
+                { type: 'ReviewerAssignment', id: 'MY_LIST' },
+            ],
+        }),
+
+        // Từ chối một phân công
+        rejectReviewerAssignment: builder.mutation<ReviewerAssignmentDto, string>({
+            query: (conferenceAssignmentId) => ({
+                url: `/reviewer/assignments/${conferenceAssignmentId}/reject`,
+                method: 'POST',
+            }),
+            invalidatesTags: (_result, _error, conferenceAssignmentId) => [
+                { type: 'ReviewerAssignment', id: conferenceAssignmentId },
+                { type: 'ReviewerAssignment', id: 'MY_LIST' },
+            ],
+        }),
+
+        // Đặt lại trạng thái phân công về pending
+        resetReviewerAssignmentStatus: builder.mutation<ReviewerAssignmentDto, string>({
+            query: (conferenceAssignmentId) => ({
+                url: `/reviewer/assignments/${conferenceAssignmentId}/pending`,
+                method: 'POST',
+            }),
+            invalidatesTags: (_result, _error, conferenceAssignmentId) => [
+                { type: 'ReviewerAssignment', id: conferenceAssignmentId },
+                { type: 'ReviewerAssignment', id: 'MY_LIST' },
+            ],
         }),
     }),
 });
@@ -90,4 +153,10 @@ export const {
     useLazySuggestReviewersForTopicQuery, // nếu cần lazy query
     useAssignReviewersToTopicMutation,
     useUnassignMutation,
+    // Reviewer Assignment hooks
+    useGetMyReviewerAssignmentsQuery,
+    useGetReviewerAssignmentDetailQuery,
+    useAcceptReviewerAssignmentMutation,
+    useRejectReviewerAssignmentMutation,
+    useResetReviewerAssignmentStatusMutation,
 } = assignmentsApi;

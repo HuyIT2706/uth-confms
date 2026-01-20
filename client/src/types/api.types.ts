@@ -180,30 +180,3 @@ export interface QuerySubmissionsDto extends PaginationParams {
   topic?: string;
 }
 
-// Review Types
-export interface Review {
-  id: number;
-  submissionId: string;
-  reviewerId: number;
-  score: number;
-  commentForAuthor: string;
-  commentForChair?: string;
-  recommendation: 'ACCEPT' | 'REJECT' | 'MAJOR_REVISION' | 'MINOR_REVISION';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface AnonymizedReview {
-  score: number;
-  commentForAuthor: string;
-  recommendation: string;
-}
-
-export interface ReviewAssignment {
-  id: number;
-  submissionId: string;
-  reviewerId: number;
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
-  createdAt: string;
-}
-

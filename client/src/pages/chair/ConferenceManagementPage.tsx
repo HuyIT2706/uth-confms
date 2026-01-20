@@ -44,7 +44,7 @@ const ConferenceManagementPage = () => {
     const [statusFilter, setStatusFilter] = useState('all');
 
     // Filtered conferences
-    const filteredConferences = conferences.filter(conf => {
+    const filteredConferences = conferences.filter((conf: any) => {
         const matchesSearch = conf.shortName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             conf.fullName.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || conf.status.toLowerCase() === statusFilter.toLowerCase();
@@ -136,19 +136,19 @@ const ConferenceManagementPage = () => {
                     <div className="bg-white rounded-lg shadow-sm p-4">
                         <p className="text-sm text-gray-600">Đang hoạt động</p>
                         <p className="text-2xl font-bold text-green-600">
-                            {conferences.filter(c => c.status === 'Active').length}
+                            {conferences.filter((c: any) => c.status === 'Active').length}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm p-4">
                         <p className="text-sm text-gray-600">Bản nháp</p>
                         <p className="text-2xl font-bold text-gray-600">
-                            {conferences.filter(c => c.status === 'Draft').length}
+                            {conferences.filter((c: any) => c.status === 'Draft').length}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm p-4">
                         <p className="text-sm text-gray-600">Đã đóng</p>
                         <p className="text-2xl font-bold text-red-600">
-                            {conferences.filter(c => c.status === 'Closed').length}
+                            {conferences.filter((c: any) => c.status === 'Closed').length}
                         </p>
                     </div>
                 </div>
@@ -175,7 +175,7 @@ const ConferenceManagementPage = () => {
                             </Link>
                         </div>
                     ) : (
-                        filteredConferences.map((conf) => (
+                        filteredConferences.map((conf: any) => (
                             <div
                                 key={conf.id}
                                 className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"

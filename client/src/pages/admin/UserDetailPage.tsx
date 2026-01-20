@@ -30,7 +30,7 @@ const UserDetailPage = () => {
     const userId = Number(id);
     
     const { data: userData, isLoading, error } = useGetUserByIdQuery(userId);
-    const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
+    const [deleteUser] = useDeleteUserMutation();
     const [activeTab, setActiveTab] = useState('overview');
 
 

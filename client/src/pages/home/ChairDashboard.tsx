@@ -126,11 +126,13 @@ const ChairDashboard = ({ currentRole }: ChairDashboardProps) => {
                                 let roles: string[] = [];
                                 if (Array.isArray(rolesInput)) {
                                     roles = rolesInput
-                                        .map((r) => (typeof r === 'string' ? r : r?.name ?? r?.role ?? r?.value))
-                                        .filter(Boolean)
-                                        .map((s) => s!.toString().toLowerCase().replace(/^role_/, '').trim());
+                                        .map((r: any) => (typeof r === 'string' ? r : r?.name ?? r?.role ?? r?.value))
+                                        .filter((x): x is string => Boolean(x))
+                                        .map((s: string) => {
+                                            return s.toLowerCase().replace(/^role_/, '').trim();
+                                        });
                                 } else if (typeof rolesInput === 'string') {
-                                    roles = [rolesInput.toLowerCase().replace(/^role_/, '').trim()];
+                                    roles = [(rolesInput as string).toLowerCase().replace(/^role_/, '').trim()];
                                 }
                                 isAdmin = roles.includes('admin');
                             }
@@ -196,7 +198,7 @@ const ChairDashboard = ({ currentRole }: ChairDashboardProps) => {
                                 </div>
                             ) : (
                                 <>
-                            {displayConferences.map((conf) => (
+                            {displayConferences.map((conf: any) => (
                                 <div
                                     key={conf.id}
                                     className="border border-gray-200 rounded-lg p-6 hover:border-[#008689] hover:shadow-md transition-all duration-300"

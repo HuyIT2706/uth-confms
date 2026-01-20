@@ -24,10 +24,6 @@ export default defineConfig({
       },
     },
 
-    // Tùy chọn: tăng timeout cho proxy
-    proxyTimeout: 30000,  // 30 giây
-    timeout: 30000,
-
     // Tùy chọn: mở browser tự động khi dev
     open: true,
 
