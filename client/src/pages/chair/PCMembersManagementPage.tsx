@@ -52,7 +52,7 @@ const PCMembersManagementPage = () => {
         isLoading: isLoadingReviewers,
         error: reviewersError,
     } = useSearchReviewersQuery(
-        { q: searchTerm || undefined, page: 1, limit: 50 },
+        { search: searchTerm || undefined, limit: 50 },
         { skip: !shouldLoadReviewers }
     );
 

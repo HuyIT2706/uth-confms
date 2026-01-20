@@ -166,16 +166,30 @@ export const usersApi = apiSlice.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
 
-    // Search reviewers
+    // Search reviewers - fetch all users and let FE filter
     searchReviewers: builder.query<
-      { message: string; data: User[] },
+      User[],
       { search?: string; limit?: number }
     >({
-      query: ({ search = '', limit = 10 }) => ({
-        url: '/users/search',
-        method: 'GET',
-        params: { search, limit },
-      }),
+      query: () => '/users',
+      transformResponse: (response: { message: string; data: User[] }, _meta, arg: { search?: string; limit?: number }) => {
+        let data = response.data || [];
+        
+        // Filter on FE side if search term provided
+        if (arg.search && arg.search.trim() !== '') {
+          const searchTerm = arg.search.toLowerCase();
+          data = data.filter(user => 
+            user.email?.toLowerCase().includes(searchTerm) ||
+            user.fullName?.toLowerCase().includes(searchTerm)
+          );
+        }
+        
+        // Limit results
+        const limit = arg.limit || 10;
+        data = data.slice(0, limit);
+        
+        return data;  // ← Return array trực tiếp, không phải {message, data}
+      },
       providesTags: [{ type: 'User', id: 'LIST' }],
     }),
   }),

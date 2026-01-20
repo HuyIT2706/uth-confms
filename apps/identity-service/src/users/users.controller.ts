@@ -1,5 +1,25 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, UseGuards, Delete, Query, UnauthorizedException, NotFoundException, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
+  Delete,
+  Query,
+  UnauthorizedException,
+  NotFoundException,
+  Req,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -26,14 +46,16 @@ export class UsersController {
   async getProfile(@CurrentUser('sub') userId: number) {
     try {
       if (!userId || typeof userId !== 'number') {
-        throw new UnauthorizedException('Token không hợp lệ hoặc thiếu thông tin người dùng');
+        throw new UnauthorizedException(
+          'Token không hợp lệ hoặc thiếu thông tin người dùng',
+        );
       }
-      
+
       const user = await this.usersService.getProfile(userId);
       if (!user) {
         throw new NotFoundException('Không tìm thấy thông tin người dùng');
       }
-      
+
       const { password, roles, ...rest } = user;
       return {
         message: 'Lấy thông tin người dùng thành công',
@@ -44,12 +66,18 @@ export class UsersController {
       };
     } catch (error: any) {
       // Re-throw known exceptions
-      if (error instanceof UnauthorizedException || error instanceof NotFoundException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
       // Log and throw generic error for unknown errors
       console.error('[UsersController] Error in getProfile:', error);
-      throw new UnauthorizedException('Lỗi khi lấy thông tin người dùng: ' + (error?.message || 'Unknown error'));
+      throw new UnauthorizedException(
+        'Lỗi khi lấy thông tin người dùng: ' +
+          (error?.message || 'Unknown error'),
+      );
     }
   }
 
@@ -69,20 +97,30 @@ export class UsersController {
 
   @Post('forgot-password')
   @ApiOperation({ summary: 'Gửi mã reset mật khẩu qua email' })
-  @ApiResponse({ status: 200, description: 'Đã gửi mã reset mật khẩu (luôn trả về 200 để bảo mật)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Đã gửi mã reset mật khẩu (luôn trả về 200 để bảo mật)',
+  })
   async forgotPassword(@Body('email') email: string) {
     await this.usersService.forgotPassword(email);
     return { message: 'Đã gửi mã reset mật khẩu tới email (nếu tồn tại)' };
   }
 
   @Get('get-reset-code')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy code db để xác thực email',
-    description: 'Helper endpoint để lấy reset code cho user để test.'
+    description: 'Helper endpoint để lấy reset code cho user để test.',
   })
-  @ApiQuery({ name: 'email', description: 'Email của user cần lấy code', required: true })
+  @ApiQuery({
+    name: 'email',
+    description: 'Email của user cần lấy code',
+    required: true,
+  })
   @ApiResponse({ status: 200, description: 'Lấy code thành công' })
-  @ApiResponse({ status: 404, description: 'User không tồn tại hoặc chưa có code' })
+  @ApiResponse({
+    status: 404,
+    description: 'User không tồn tại hoặc chưa có code',
+  })
   async getResetCode(@Query('email') email: string) {
     const result = await this.usersService.getResetCodeByEmail(email);
     return {
@@ -101,15 +139,17 @@ export class UsersController {
   ) {
     const isValid = await this.usersService.verifyResetCode(email, code);
     if (!isValid) {
-      throw new UnauthorizedException('Mã reset mật khẩu không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException(
+        'Mã reset mật khẩu không hợp lệ hoặc đã hết hạn',
+      );
     }
     return { message: 'Mã reset mật khẩu hợp lệ', valid: true };
   }
 
   @Post('reset-password')
   @ApiOperation({
-      summary: "Đặt lại password",
-      description: "Đặt lại password khi quên pass"
+    summary: 'Đặt lại password',
+    description: 'Đặt lại password khi quên pass',
   })
   async resetPassword(
     @Body('email') email: string,
@@ -183,7 +223,8 @@ export class UsersController {
 
     const { password, roles, ...userWithoutPassword } = userWithRoles;
     return {
-      message: 'Tạo tài khoản thành công. Email thông báo đã được gửi đến người dùng.',
+      message:
+        'Tạo tài khoản thành công. Email thông báo đã được gửi đến người dùng.',
       data: {
         ...userWithoutPassword,
         roles: roles?.map((role) => role.name) || [],
@@ -227,4 +268,3 @@ export class UsersController {
     return { message: 'Xóa user thành công (soft delete)' };
   }
 }
-

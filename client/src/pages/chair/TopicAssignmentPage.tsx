@@ -43,7 +43,7 @@ const TopicAssignmentPage = () => {
     // Lấy thông tin user cho các reviewer đã chấp nhận để hiển thị tên/email
     const shouldLoadReviewers = acceptedReviewers.length > 0;
     const { data: reviewers = [] } = useSearchReviewersQuery(
-        { q: undefined, page: 1, limit: 200 },
+        { search: undefined, limit: 200 },
         { skip: !shouldLoadReviewers },
     );
 
