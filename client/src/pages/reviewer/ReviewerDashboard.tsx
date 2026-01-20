@@ -171,12 +171,12 @@ const ReviewerDashboard = () => {
                                 Xem lời mời tham gia hội nghị
                             </Link>
                             <Link
-  to="/reviewer/assignments"
-  className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
->
-  <Assignment className="w-5 h-5 mr-2" />
-  Xem danh sách bài được giao
-</Link>
+                                to="/reviewer/submissions"
+                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                            >
+                                <Assignment className="w-5 h-5 mr-2" />
+                                Xem danh sách bài được giao
+                            </Link>
 
                         </div>
                     </div>
@@ -265,7 +265,7 @@ const ReviewerDashboard = () => {
                         <div className="bg-white rounded-xl shadow-md p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-2xl font-bold text-gray-900">
-                                    Bài được giao gần đây
+                                    Lời mời phân công đánh giá
                                 </h2>
                                 <Link
                                     to="/reviewer/assignments"
@@ -313,7 +313,7 @@ const ReviewerDashboard = () => {
                             ) : (
                                 <div className="text-center py-12">
                                     <AssignmentInd className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                    <p className="text-gray-600">Chưa có bài được giao</p>
+                                    <p className="text-gray-600">Không có lời mời đang chờ</p>
                                 </div>
                             )}
                         </div>
@@ -322,7 +322,7 @@ const ReviewerDashboard = () => {
                         <div className="bg-white rounded-xl shadow-md p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-2xl font-bold text-gray-900">
-                                    Lời mời đang chờ
+                                    Lời mời tham gia hội nghị
                                 </h2>
                                 <Link
                                     to="/reviewer/invitations"

@@ -33,6 +33,9 @@ import ChangePasswordPage from '../pages/admin/profile/ChangePasswordPage.tsx';
 import ReviewerDashboard from '../pages/reviewer/ReviewerDashboard.tsx';
 import InvitationListPage from '../pages/reviewer/InvitationListPage.tsx';
 import InvitationTopicsPage from '../pages/reviewer/InvitationTopicsPage.tsx';
+import AssignmentListPage from '../pages/reviewer/AssignmentListPage.tsx';
+import SubmissionListPage from '../pages/reviewer/SubmissionListPage.tsx';
+import SubmissionsOverviewPage from '../pages/reviewer/SubmissionsOverviewPage.tsx';
 
 const appRouter = createBrowserRouter([
   {
@@ -114,6 +117,18 @@ const appRouter = createBrowserRouter([
       {
         path: 'reviewer/invitations/:id/topics',
         element: <InvitationTopicsPage />,
+      },
+      {
+        path: 'reviewer/assignments',
+        element: <AssignmentListPage />,
+      },
+      {
+        path: 'reviewer/submissions/:conferenceId',
+        element: <SubmissionListPage />,
+      },
+      {
+        path: 'reviewer/submissions',
+        element: <SubmissionsOverviewPage />,
       },
       
       {

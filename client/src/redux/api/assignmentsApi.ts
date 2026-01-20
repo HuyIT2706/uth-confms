@@ -19,6 +19,19 @@ interface Assignment {
     // Thêm field khác nếu backend trả về
 }
 
+// Submission type cho reviewer view
+interface ReviewerSubmission {
+    id: string;
+    title: string;
+    abstract?: string;
+    keywords?: string[];
+    status?: string;
+    authorId?: number;
+    authorName?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 // Thống nhất base URL với các API khác (qua gateway)
 const API_BASE_URL =
     (import.meta as any)?.env?.VITE_API_BASE_URL ||
@@ -143,6 +156,14 @@ export const assignmentsApi = createApi({
                 { type: 'ReviewerAssignment', id: 'MY_LIST' },
             ],
         }),
+
+        // Lấy danh sách submissions của một conference cho reviewer
+        getReviewerSubmissionsByConference: builder.query<ReviewerSubmission[], string>({
+            query: (conferenceId) => `/reviewer/assignments/${conferenceId}/submissions`,
+            providesTags: (_result, _error, conferenceId) => [
+                { type: 'ReviewerAssignment', id: `SUBMISSIONS_${conferenceId}` },
+            ],
+        }),
     }),
 });
 
@@ -159,4 +180,5 @@ export const {
     useAcceptReviewerAssignmentMutation,
     useRejectReviewerAssignmentMutation,
     useResetReviewerAssignmentStatusMutation,
+    useGetReviewerSubmissionsByConferenceQuery,
 } = assignmentsApi;
