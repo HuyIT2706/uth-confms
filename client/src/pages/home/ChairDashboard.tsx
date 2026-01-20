@@ -19,23 +19,39 @@ const ChairDashboard = ({ currentRole }: ChairDashboardProps) => {
     // Fetch conferences from API
     const { data: conferencesData, isLoading, error } = useGetConferencesQuery();
     
+    // Helper function to determine display status based on dates
+    const getDisplayStatus = (startDate: string | Date, endDate: string | Date) => {
+        const now = new Date();
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        if (now < start) {
+            return { status: 'Chưa mở', color: 'text-gray-600 bg-gray-50' };
+        } else if (now <= end) {
+            return { status: 'Đang mở', color: 'text-green-600 bg-green-50' };
+        } else {
+            return { status: 'Đã đóng', color: 'text-red-600 bg-red-50' };
+        }
+    };
+    
     // Map API data to component format
     const apiConferences = Array.isArray(conferencesData) ? conferencesData : (conferencesData?.data || []);
     
-    const myConferences = apiConferences.map((conf: any) => ({
-        id: conf.id,
-        name: conf.name,
-        acronym: conf.acronym,
-        startDate: conf.startDate,
-        endDate: conf.endDate,
-        status: conf.status === 'draft' ? 'Draft' : conf.status === 'active' ? 'Active' : 'Closed',
-        statusColor: conf.status === 'draft' ? 'text-gray-600 bg-gray-50' : 
-                     conf.status === 'active' ? 'text-green-600 bg-green-50' : 
-                     'text-red-600 bg-red-50',
+    const myConferences = apiConferences.map((conf: any) => {
+        const displayStatus = getDisplayStatus(conf.startDate, conf.endDate);
+        return {
+            id: conf.id,
+            name: conf.name,
+            acronym: conf.acronym,
+            startDate: conf.startDate,
+            endDate: conf.endDate,
+            status: displayStatus.status,
+            statusColor: displayStatus.color,
         submissions: 0, // These would come from another API
         reviews: 0,
         decisions: 0,
-    }));
+    };
+    });
 
     // Only display first 3 conferences
     const displayConferences = myConferences.slice(0, 3);

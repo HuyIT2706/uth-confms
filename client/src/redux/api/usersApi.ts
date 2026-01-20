@@ -166,32 +166,41 @@ export const usersApi = apiSlice.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
 
-    // Search reviewers - fetch all users and let FE filter
-    searchReviewers: builder.query<
-      User[],
-      { search?: string; limit?: number }
-    >({
-      query: () => '/users',
-      transformResponse: (response: { message: string; data: User[] }, _meta, arg: { search?: string; limit?: number }) => {
-        let data = response.data || [];
+    
+      // Search reviewers - fetch all users and filter by REVIEWER role
+      searchReviewers: builder.query<
+        User[],
+        { search?: string; limit?: number }
+      >({
+        query: () => '/users',
+        transformResponse: (response: { message: string; data: User[] }, _meta, arg: { search?: string; limit?: number }) => {
+          let data = response.data || [];
         
-        // Filter on FE side if search term provided
-        if (arg.search && arg.search.trim() !== '') {
-          const searchTerm = arg.search.toLowerCase();
-          data = data.filter(user => 
-            user.email?.toLowerCase().includes(searchTerm) ||
-            user.fullName?.toLowerCase().includes(searchTerm)
-          );
-        }
+          // Filter by REVIEWER role only
+          data = data.filter(user => {
+            const roles: string[] = Array.isArray(user.roles)
+              ? user.roles.map((r: any) => typeof r === 'string' ? r : r?.name || r?.role || '')
+              : (user.role ? [user.role] : []);
+            return roles.includes('REVIEWER');
+          });
         
-        // Limit results
-        const limit = arg.limit || 10;
-        data = data.slice(0, limit);
+          // Filter on FE side if search term provided
+          if (arg.search && arg.search.trim() !== '') {
+            const searchTerm = arg.search.toLowerCase();
+            data = data.filter(user => 
+              user.email?.toLowerCase().includes(searchTerm) ||
+              user.fullName?.toLowerCase().includes(searchTerm)
+            );
+          }
         
-        return data;  // ← Return array trực tiếp, không phải {message, data}
-      },
-      providesTags: [{ type: 'User', id: 'LIST' }],
-    }),
+          // Limit results
+          const limit = arg.limit || 10;
+          data = data.slice(0, limit);
+        
+          return data;  // ← Return array trực tiếp, không phải {message, data}
+        },
+        providesTags: [{ type: 'User', id: 'LIST' }],
+      }),
   }),
 });
 

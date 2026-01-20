@@ -60,7 +60,14 @@ const ConferenceDetailPageChair = () => {
         location: apiConference.location || 'N/A',
         venue: 'N/A',
         website: 'N/A',
-        status: apiConference.status === 'draft' ? 'Draft' : apiConference.status === 'active' ? 'Active' : 'Closed',
+        status: (() => {
+            const now = new Date();
+            const start = new Date(apiConference.startDate);
+            const end = new Date(apiConference.endDate);
+            if (now < start) return 'Chưa mở';
+            if (now <= end) return 'Đang mở';
+            return 'Đã đóng';
+        })(),
         submissionDeadline: apiConference.deadlines?.submission || 'N/A',
         reviewDeadline: apiConference.deadlines?.review || 'N/A',
         notificationDate: 'N/A',
