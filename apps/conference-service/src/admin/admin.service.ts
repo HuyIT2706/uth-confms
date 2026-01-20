@@ -50,8 +50,8 @@ export class AdminService {
             // Bước 1: Lấy số lượng users từ Identity Service
             const usersCount = await this.getUsersCount();
 
-            // Bước 2: Đếm conferences trong database local
-            const conferencesCount = await this.conferenceRepo.count();
+            // Bước 2: Đếm conferences trong database local (chỉ active)
+            const conferencesCount = await this.conferenceRepo.count({ where: { isActive: true } });
 
             // Bước 3: Lấy thống kê submissions
             const submissionsStats = await this.getSubmissionsStats();
