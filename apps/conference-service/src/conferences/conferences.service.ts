@@ -29,7 +29,7 @@ export class ConferencesService {
     const conference = this.conferenceRepository.create({
       ...createDto,
       chairId: userId,
-      status: ConferenceStatus.DRAFT,
+      status: ConferenceStatus.OPEN,
       isActive: true,
       deadlines: createDto.deadlines || {
         submission: null,

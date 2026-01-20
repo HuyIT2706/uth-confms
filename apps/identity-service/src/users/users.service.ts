@@ -14,7 +14,6 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
 import { EmailService } from '../common/services/email.service';
 
-
 @Injectable()
 export class UsersService {
   constructor(
@@ -28,7 +27,6 @@ export class UsersService {
     private readonly emailVerificationTokenRepository: Repository<EmailVerificationToken>,
     private readonly dataSource: DataSource,
     private readonly emailService: EmailService,
-    
   ) {}
   // Đánh dấu email của user đã được xác minh
   async markEmailVerified(userId: number): Promise<User> {
@@ -42,7 +40,7 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({
-      where: { 
+      where: {
         email,
         deletedAt: IsNull(),
         isActive: true,
@@ -50,7 +48,7 @@ export class UsersService {
       relations: ['roles'],
     });
   }
-// Tìm user theo email bao gồm cả những user đã bị xóa mềm
+  // Tìm user theo email bao gồm cả những user đã bị xóa mềm
   async findByEmailIncludingDeleted(email: string): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { email }, // No deletedAt filter - includes soft deleted
@@ -60,7 +58,7 @@ export class UsersService {
 
   async findById(id: number): Promise<User | null> {
     return this.usersRepository.findOne({
-      where: { 
+      where: {
         id,
         deletedAt: IsNull(),
         isActive: true,
@@ -68,7 +66,7 @@ export class UsersService {
       relations: ['roles'],
     });
   }
-// Tìm all
+  // Tìm all
   async findAll(): Promise<User[]> {
     return this.usersRepository.find({
       where: {
@@ -79,7 +77,7 @@ export class UsersService {
       order: { createdAt: 'DESC' },
     });
   }
-// Tạo user với vai trò tùy chỉnh
+  // Tạo user với vai trò tùy chỉnh
   async createUser(params: {
     email: string;
     password: string;
@@ -91,11 +89,17 @@ export class UsersService {
       const verifiedRoles: Role[] = [];
       for (const role of rolesToAssign) {
         if (!role.id) {
-          throw new Error(`Role ${role.name} Không có ID. Vui lòng đảm bảo các vai trò được tải từ cơ sở dữ liệu.`);
+          throw new Error(
+            `Role ${role.name} Không có ID. Vui lòng đảm bảo các vai trò được tải từ cơ sở dữ liệu.`,
+          );
         }
-        const dbRole = await this.roleRepository.findOne({ where: { id: role.id } });
+        const dbRole = await this.roleRepository.findOne({
+          where: { id: role.id },
+        });
         if (!dbRole) {
-          throw new Error(`Role ${role.name} with ID ${role.id} Không có trong cơ sở dữ liệu`);
+          throw new Error(
+            `Role ${role.name} with ID ${role.id} Không có trong cơ sở dữ liệu`,
+          );
         }
         verifiedRoles.push(dbRole);
       }
@@ -106,13 +110,13 @@ export class UsersService {
         isVerified: false,
         roles: verifiedRoles,
       });
-      
+
       const savedUser = await this.usersRepository.save(user);
       const userWithRoles = await this.usersRepository.findOne({
         where: { id: savedUser.id },
         relations: ['roles'],
       });
-      
+
       if (!userWithRoles) {
         throw new Error('Failed to reload user with roles');
       }
@@ -124,28 +128,28 @@ export class UsersService {
         fullName: params.fullName,
         isVerified: false,
       });
-      
+
       const savedUser = await this.usersRepository.save(user);
       const userWithRoles = await this.usersRepository.findOne({
         where: { id: savedUser.id },
         relations: ['roles'],
       });
-      
+
       if (!userWithRoles) {
         throw new Error('Failed to reload user');
       }
-      
+
       return userWithRoles;
     }
   }
-// Tìm vai trò theo tên
+  // Tìm vai trò theo tên
   async findRoleByName(name: string): Promise<Role | null> {
-    const role = await this.roleRepository.findOne({ 
-      where: { name: name as RoleName } 
+    const role = await this.roleRepository.findOne({
+      where: { name: name as RoleName },
     });
     return role;
   }
-// Tạo user với vai trò cụ thể
+  // Tạo user với vai trò cụ thể
   async createUserWithRole(params: {
     email: string;
     password: string; // Password gốc (chưa hash)
@@ -174,7 +178,7 @@ export class UsersService {
     });
 
     const savedUser = await this.usersRepository.save(user);
-    
+
     // Gửi email thông báo tài khoản đã được tạo (không gửi code verification)
     // Gửi password gốc để người dùng biết thông tin đăng nhập
     try {
@@ -189,7 +193,7 @@ export class UsersService {
 
     return savedUser;
   }
-// Cập nhật vai trò cho user
+  // Cập nhật vai trò cho user
   async updateUserRoles(userId: number, roleName: string): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
@@ -211,11 +215,8 @@ export class UsersService {
     }
     return user;
   }
-// Đổi mật khẩu
-  async changePassword(
-    userId: number,
-    dto: ChangePasswordDto,
-  ): Promise<void> {
+  // Đổi mật khẩu
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -233,7 +234,7 @@ export class UsersService {
     user.password = hashed;
     await this.usersRepository.save(user);
   }
-// Quên mật khẩu - gửi email đặt lại mật khẩu
+  // Quên mật khẩu - gửi email đặt lại mật khẩu
   async forgotPassword(email: string): Promise<void> {
     const user = await this.findByEmail(email);
     if (!user) {
@@ -241,7 +242,7 @@ export class UsersService {
     }
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); 
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     const resetToken = this.passwordResetTokenRepository.create({
       token: code,
@@ -257,7 +258,7 @@ export class UsersService {
       throw new BadRequestException('Không thể gửi email đặt lại mật khẩu');
     }
   }
-// Lấy mã đặt lại mật khẩu theo email
+  // Lấy mã đặt lại mật khẩu theo email
   async getResetCodeByEmail(email: string) {
     const user = await this.findByEmail(email);
     if (!user) {
@@ -273,11 +274,15 @@ export class UsersService {
     });
 
     if (!token) {
-      throw new NotFoundException('Chưa có mã reset mật khẩu. Vui lòng gửi yêu cầu quên mật khẩu trước.');
+      throw new NotFoundException(
+        'Chưa có mã reset mật khẩu. Vui lòng gửi yêu cầu quên mật khẩu trước.',
+      );
     }
 
     if (token.expiresAt.getTime() < Date.now()) {
-      throw new UnauthorizedException('Mã reset mật khẩu đã hết hạn. Vui lòng gửi yêu cầu mới.');
+      throw new UnauthorizedException(
+        'Mã reset mật khẩu đã hết hạn. Vui lòng gửi yêu cầu mới.',
+      );
     }
 
     return {
@@ -286,7 +291,7 @@ export class UsersService {
       createdAt: token.createdAt,
     };
   }
-// Xác minh mã đặt lại mật khẩu
+  // Xác minh mã đặt lại mật khẩu
   async verifyResetCode(email: string, code: string): Promise<boolean> {
     const user = await this.findByEmail(email);
     if (!user) {
@@ -312,7 +317,7 @@ export class UsersService {
 
     return true;
   }
-// Reset mật khẩu
+  // Reset mật khẩu
   async resetPassword(
     email: string,
     code: string,
@@ -368,4 +373,3 @@ export class UsersService {
     await this.usersRepository.save(user);
   }
 }
-
