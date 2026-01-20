@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import {
     Search,
     FilterList,
@@ -11,6 +12,7 @@ import {
     Person,
 } from '@mui/icons-material';
 import { useGetConferencesQuery, useDeleteConferenceMutation } from '../../redux/api/conferencesApi';
+import { adminApi } from '../../redux/api/adminApi';
 import { showToast } from '../../utils/toast.ts';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -28,6 +30,7 @@ interface Conference {
 }
 
 const AllConferencesPage = () => {
+    const dispatch = useDispatch();
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
 
@@ -37,7 +40,7 @@ const AllConferencesPage = () => {
 
     // Map API data to component format
     const apiConferences = Array.isArray(conferencesData) ? conferencesData : (conferencesData?.data || []);
-    
+
     const conferences: Conference[] = apiConferences.map((conf: any) => ({
         id: conf.id,
         name: conf.name || '',
@@ -95,6 +98,10 @@ const AllConferencesPage = () => {
         if (window.confirm('Bạn có chắc chắn muốn xóa hội nghị này?')) {
             try {
                 await deleteConference(confId).unwrap();
+
+                // Manually invalidate Statistics cache to refresh admin dashboard
+                dispatch(adminApi.util.invalidateTags(['Statistics']));
+
                 showToast.success('Xóa hội nghị thành công!');
             } catch (err: any) {
                 const errorMessage = err?.data?.message || 'Xóa hội nghị thất bại!';
@@ -210,124 +217,124 @@ const AllConferencesPage = () => {
                                 <p className="text-red-600">Không thể tải danh sách hội nghị</p>
                             </div>
                         ) : (
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        ID
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Hội nghị
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Chair
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Thời gian
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Trạng thái
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Bài nộp
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Đánh giá
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Quyết định
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Thao tác
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredConferences.length === 0 ? (
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
                                     <tr>
-                                        <td colSpan={9} className="px-6 py-12 text-center">
-                                            <p className="text-gray-500">Không tìm thấy hội nghị nào</p>
-                                        </td>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            ID
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Hội nghị
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Chair
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Thời gian
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Trạng thái
+                                        </th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Bài nộp
+                                        </th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Đánh giá
+                                        </th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Quyết định
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Thao tác
+                                        </th>
                                     </tr>
-                                ) : (
-                                    filteredConferences.map((conf) => (
-                                        <tr key={conf.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                #{conf.id}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    {conf.acronym}
-                                                </div>
-                                                <div className="text-sm text-gray-600 max-w-xs truncate">
-                                                    {conf.name}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center text-sm text-gray-900">
-                                                    <Person className="w-4 h-4 mr-2 text-gray-400" />
-                                                    {conf.chair}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center text-sm text-gray-600">
-                                                    <CalendarMonth className="w-4 h-4 mr-2 text-gray-400" />
-                                                    <div>
-                                                        <div>{new Date(conf.startDate).toLocaleDateString('vi-VN')}</div>
-                                                        <div className="text-xs text-gray-500">
-                                                            đến {new Date(conf.endDate).toLocaleDateString('vi-VN')}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span
-                                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(
-                                                        conf.status
-                                                    )}`}
-                                                >
-                                                    {getStatusLabel(conf.status)}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                                                {conf.submissions}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                                                {conf.reviews}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                                                {conf.decisions}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Link
-                                                        to={`/chair/conferences/${conf.id}`}
-                                                        className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Visibility className="w-4 h-4" />
-                                                    </Link>
-                                                    <Link
-                                                        to={`/chair/conferences/${conf.id}/edit`}
-                                                        className="text-[#008689] hover:text-[#006666] p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                                                        title="Chỉnh sửa"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </Link>
-                                                    <button
-                                                        onClick={() => handleDeleteConference(conf.id)}
-                                                        className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors duration-200"
-                                                        title="Xóa"
-                                                    >
-                                                        <Delete className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredConferences.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={9} className="px-6 py-12 text-center">
+                                                <p className="text-gray-500">Không tìm thấy hội nghị nào</p>
                                             </td>
                                         </tr>
-                                    ))
-                                )}  
-                            </tbody>
-                        </table>
+                                    ) : (
+                                        filteredConferences.map((conf) => (
+                                            <tr key={conf.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    #{conf.id}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {conf.acronym}
+                                                    </div>
+                                                    <div className="text-sm text-gray-600 max-w-xs truncate">
+                                                        {conf.name}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center text-sm text-gray-900">
+                                                        <Person className="w-4 h-4 mr-2 text-gray-400" />
+                                                        {conf.chair}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center text-sm text-gray-600">
+                                                        <CalendarMonth className="w-4 h-4 mr-2 text-gray-400" />
+                                                        <div>
+                                                            <div>{new Date(conf.startDate).toLocaleDateString('vi-VN')}</div>
+                                                            <div className="text-xs text-gray-500">
+                                                                đến {new Date(conf.endDate).toLocaleDateString('vi-VN')}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span
+                                                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(
+                                                            conf.status
+                                                        )}`}
+                                                    >
+                                                        {getStatusLabel(conf.status)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                                                    {conf.submissions}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                                                    {conf.reviews}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                                                    {conf.decisions}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Link
+                                                            to={`/chair/conferences/${conf.id}`}
+                                                            className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200"
+                                                            title="Xem chi tiết"
+                                                        >
+                                                            <Visibility className="w-4 h-4" />
+                                                        </Link>
+                                                        <Link
+                                                            to={`/chair/conferences/${conf.id}/edit`}
+                                                            className="text-[#008689] hover:text-[#006666] p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                                                            title="Chỉnh sửa"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </Link>
+                                                        <button
+                                                            onClick={() => handleDeleteConference(conf.id)}
+                                                            className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors duration-200"
+                                                            title="Xóa"
+                                                        >
+                                                            <Delete className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         )}
                     </div>
 

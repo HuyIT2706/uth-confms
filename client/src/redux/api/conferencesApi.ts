@@ -15,9 +15,9 @@ export const conferencesApi = apiSlice.injectEndpoints({
         const conferences = Array.isArray(result) ? result : (result?.data || []);
         return conferences.length > 0
           ? [
-              ...conferences.map(({ id }: any) => ({ type: 'Conference' as const, id })),
-              { type: 'Conference', id: 'LIST' },
-            ]
+            ...conferences.map(({ id }: any) => ({ type: 'Conference' as const, id })),
+            { type: 'Conference', id: 'LIST' },
+          ]
           : [{ type: 'Conference', id: 'LIST' }];
       },
     }),
@@ -32,9 +32,9 @@ export const conferencesApi = apiSlice.injectEndpoints({
       providesTags: (result, _error, conferenceId) =>
         result
           ? [
-              ...result.data.map(({ id }) => ({ type: 'Track' as const, id })),
-              { type: 'Track', id: `conference-${conferenceId}` },
-            ]
+            ...result.data.map(({ id }) => ({ type: 'Track' as const, id })),
+            { type: 'Track', id: `conference-${conferenceId}` },
+          ]
           : [{ type: 'Track', id: `conference-${conferenceId}` }],
     }),
     // Get track by ID
