@@ -326,6 +326,8 @@ export class AssignmentsService {
         assignments.push(saved);
 
         await this.notifyReviewerAssigned(reviewer, dto.topic, conference.name, submissions);
+        // Notify review-service về assignment
+        await this.notifyReviewServiceAssignment(saved.id, dto.conferenceId, reviewerId, dto.topic, submissions);
         continue;
       }
 
@@ -345,6 +347,8 @@ export class AssignmentsService {
       assignments.push(savedNew);
 
       await this.notifyReviewerAssigned(reviewer, dto.topic, conference.name, submissions);
+      // Notify review-service về assignment
+      await this.notifyReviewServiceAssignment(savedNew.id, dto.conferenceId, reviewerId, dto.topic, submissions);
     }
 
     await this.auditService.log('ASSIGN_REVIEWERS_TO_TOPIC', chairId, 'Topic', dto.topic);
@@ -381,6 +385,61 @@ export class AssignmentsService {
     await this.auditService.log('UNASSIGN_REVIEWER', chairId, 'Assignment', assignmentId);
 
     return { message: 'Reviewer unassigned successfully' };
+  }
+
+  /**
+   * Notify review-service về assignment mới được tạo
+   * Tạo 1 assignment trong review-service cho assignment của conference-service
+   */
+  private async notifyReviewServiceAssignment(
+    assignmentId: string,
+    conferenceId: string,
+    reviewerId: number,
+    topic: string,
+    submissions: { title: string; downloadLink: string }[] = []
+  ): Promise<void> {
+    try {
+      const reviewBase = process.env.REVIEW_SERVICE_URL || 'http://review-service:3004/api';
+      const notifyUrl = `${reviewBase}/reviewer/assignments`;
+      const secret = process.env.REVIEWER_SERVICE_SECRET || '';
+
+      // Tạo assignment tổng quát cho topic trong review-service
+      // Một assignment trong conference-service = một assignment trong review-service
+      const body = {
+        conferenceId,
+        reviewerId,
+        topic,
+        submissionInfo: {
+          conferenceAssignmentId: assignmentId,
+          topic,
+          assignedAt: new Date().toISOString(),
+          submissionsCount: submissions.length,
+          submissions: submissions.map(s => ({
+            title: s.title,
+            downloadLink: s.downloadLink,
+          })),
+        },
+      };
+
+      await firstValueFrom(
+        this.httpService.post(notifyUrl, body, {
+          headers: secret ? { 'x-service-secret': secret } : {},
+        })
+      ).catch((err) => {
+        this.logger.warn(
+          `Failed to notify review-service about assignment ${assignmentId}: ${err.message}`
+        );
+      });
+
+      this.logger.log(
+        `Notified review-service about assignment ${assignmentId} for reviewer ${reviewerId}, topic "${topic}"`
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `Exception notifying review-service about assignment ${assignmentId}: ${err.message}`,
+        err.stack
+      );
+    }
   }
 
   /**

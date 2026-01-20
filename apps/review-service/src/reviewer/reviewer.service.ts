@@ -90,7 +90,7 @@ export class ReviewerService {
     inv.status = status;
     // Khi revert về pending, clear reviewerTopics để reviewer phải khai báo lại
     if (status === 'pending') {
-      inv.reviewerTopics = null;
+      inv.reviewerTopics = undefined;
       this.logger.log(`Reverted invitation ${id} to pending, cleared reviewerTopics`);
     }
     const saved = await this.repo.save(inv);
@@ -341,9 +341,25 @@ export class ReviewerService {
       throw new BadRequestException('conferenceAssignmentId is required in submissionInfo');
     }
 
+    // Kiểm tra xem đã có assignment với conferenceAssignmentId này chưa
+    const existingByConferenceId = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId },
+    });
+
+    if (existingByConferenceId) {
+      this.logger.warn(
+        `Assignment already exists with conferenceAssignmentId ${conferenceAssignmentId}`
+      );
+      return existingByConferenceId;
+    }
+
+    // Nếu có submissionId, kiểm tra xem đã có assignment cho submission này chưa
     const whereClause: any = { conferenceId, reviewerId };
     if (submissionId) {
       whereClause.submissionId = submissionId;
+    } else if (topic) {
+      // Nếu không có submissionId nhưng có topic, kiểm tra xem đã có assignment cho topic này chưa
+      whereClause.topic = topic;
     }
 
     const existing = await this.assignmentRepo.findOne({
@@ -352,7 +368,7 @@ export class ReviewerService {
 
     if (existing) {
       this.logger.warn(
-        `Assignment already exists for reviewer ${reviewerId}, conference ${conferenceId}, submission ${submissionId}`
+        `Assignment already exists for reviewer ${reviewerId}, conference ${conferenceId}, topic ${topic}`
       );
       return existing;
     }
@@ -369,7 +385,7 @@ export class ReviewerService {
 
     const saved = await this.assignmentRepo.save(assignment);
     this.logger.log(
-      `Created assignment for reviewer ${reviewerId}, conference ${conferenceId}, submission ${submissionId}, conferenceAssignmentId: ${conferenceAssignmentId}`
+      `Created assignment for reviewer ${reviewerId}, conference ${conferenceId}, topic ${topic}, conferenceAssignmentId: ${conferenceAssignmentId}`
     );
     return saved;
   }
