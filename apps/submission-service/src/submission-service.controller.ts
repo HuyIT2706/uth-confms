@@ -24,6 +24,7 @@ import { CreateSubmissionDto } from './dtos/create-submission.dto';
 import { UpdateStatusDto } from './dtos/update-status.dto';
 import { UpdateSubmissionDto } from './dtos/update-submission.dto';
 import { QuerySubmissionsDto } from './dtos/query-submissions.dto';
+import { SubmissionListResponseDto } from './dtos/submission-response.dto';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { Roles } from './auth/roles.decorator';
@@ -36,16 +37,20 @@ import type { Express } from 'express';
 export class SubmissionServiceController {
   constructor(private readonly submissionService: SubmissionServiceService) { }
 
-  // --- 0. API LẤY TẤT CẢ BÀI NỘP VỚI PHÂN TRANG & LỌC (CHAIR) ---
+  // --- 0. API LẤY TẤT CẢ BÀI NỘP VỚI PHÂN TRANG & LỌC (CHAIR/ADMIN) ---
   @Get()
   @Roles('CHAIR', 'ADMIN')
   @ApiOperation({
     summary: 'Lấy danh sách tất cả bài nộp (có phân trang và lọc)',
-    description: 'CHAIR có thể xem tất cả bài nộp với phân trang, lọc và sắp xếp'
+    description: 'CHAIR và ADMIN có thể xem tất cả bài nộp với phân trang, lọc và sắp xếp'
   })
-  @ApiResponse({ status: 200, description: 'Returns paginated submissions' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns paginated submissions',
+    type: SubmissionListResponseDto
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - requires CHAIR role' })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires CHAIR or ADMIN role' })
   async findAll(@Query() query: QuerySubmissionsDto) {
     return this.submissionService.findAllWithPagination(query);
   }
@@ -183,16 +188,20 @@ export class SubmissionServiceController {
   // --- 5. API CẬP NHẬT METADATA SUBMISSION (AUTHOR ONLY) ---
   @Patch(':id')
   @Roles('AUTHOR')
+  @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Cập nhật thông tin bài nộp' })
+  @ApiConsumes('multipart/form-data')
   async updateSubmission(
     @Param('id') id: string,
     @Body() updateDto: UpdateSubmissionDto,
+    @UploadedFile() file: Express.Multer.File,
     @Request() req
   ) {
     return this.submissionService.updateSubmission(
       Number(id),
       req.user.userId,
-      updateDto
+      updateDto,
+      file
     );
   }
 

@@ -102,6 +102,16 @@ export class ConferencesController {
     return this.conferencesService.findAll(status ? { status } : {});
   }
 
+  // Endpoint for authors to view conferences for submission (read-only, public conferences only)
+  @Get('for-submission')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleName.AUTHOR)
+  @ApiOperation({ summary: 'Lấy danh sách hội nghị công khai để nộp bài (chỉ dành cho tác giả)' })
+  @ApiResponse({ status: 200, description: 'Danh sách hội nghị công khai' })
+  getConferencesForSubmission() {
+    return this.conferencesService.findPublic();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.CHAIR, RoleName.ADMIN)

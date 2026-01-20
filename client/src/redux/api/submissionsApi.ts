@@ -22,20 +22,20 @@ export const submissionsApi = apiSlice.injectEndpoints({
       providesTags: (result) =>
         result
           ? [
-              ...result.data.map(({ id }) => ({ type: 'Submission' as const, id })),
-              { type: 'Submission', id: 'LIST' },
-            ]
+            ...result.data.map(({ id }) => ({ type: 'Submission' as const, id })),
+            { type: 'Submission', id: 'LIST' },
+          ]
           : [{ type: 'Submission', id: 'LIST' }],
     }),
     // Get my submissions
     getMySubmissions: builder.query<ApiResponse<Submission[]>, void>({
-      query: () => '/submissions/me',
+      query: () => '/submissions/user/me',
       providesTags: (result) =>
         result
           ? [
-              ...result.data.map(({ id }) => ({ type: 'Submission' as const, id })),
-              { type: 'Submission', id: 'MY_LIST' },
-            ]
+            ...result.data.map(({ id }) => ({ type: 'Submission' as const, id })),
+            { type: 'Submission', id: 'MY_LIST' },
+          ]
           : [{ type: 'Submission', id: 'MY_LIST' }],
     }),
     // Get submission by ID
@@ -46,7 +46,7 @@ export const submissionsApi = apiSlice.injectEndpoints({
     // Create submission (with file upload)
     createSubmission: builder.mutation<ApiResponse<Submission>, FormData>({
       query: (formData) => ({
-        url: '/submissions',
+        url: '/submissions/upload',
         method: 'POST',
         body: formData,
         // Don't set Content-Type, let browser set it with boundary for multipart/form-data
@@ -62,21 +62,40 @@ export const submissionsApi = apiSlice.injectEndpoints({
       { id: string; data: UpdateSubmissionDto; file?: File }
     >({
       query: ({ id, data, file }) => {
-        const formData = new FormData();
+        // If file is present, use FormData; otherwise use JSON
         if (file) {
+          console.log('🔄 Building FormData in submissionsApi...');
+          console.log('📎 File to append:', file);
+          const formData = new FormData();
           formData.append('file', file);
-        }
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== undefined) {
-            formData.append(key, value.toString());
-          }
-        });
+          Object.entries(data).forEach(([key, value]) => {
+            if (value !== undefined) {
+              formData.append(key, value.toString());
+            }
+          });
 
-        return {
-          url: `/submissions/${id}`,
-          method: 'PUT',
-          body: formData,
-        };
+          // Log FormData entries
+          // @ts-ignore
+          for (let pair of formData.entries()) {
+            console.log('📋 FormData Entry:', pair[0], pair[1]);
+          }
+
+          return {
+            url: `/submissions/${id}`,
+            method: 'PATCH',
+            body: formData,
+          };
+        } else {
+          // Send JSON when no file
+          return {
+            url: `/submissions/${id}`,
+            method: 'PATCH',
+            body: data,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          };
+        }
       },
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Submission', id },

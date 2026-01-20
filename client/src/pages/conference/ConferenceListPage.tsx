@@ -271,7 +271,7 @@ const ConferenceListPage = () => {
                                         </Link>
                                         {conference.status !== 'Closed' && (
                                             <Link
-                                                to="/submission"
+                                                to={`/submission?conferenceId=${conference.id}`}
                                                 className="flex-1 px-4 py-2 bg-[#008689] hover:bg-[#006666] text-white text-center font-medium rounded-lg transition-colors duration-200 text-sm"
                                             >
                                                 Nộp bài

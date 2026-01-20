@@ -9,7 +9,7 @@ export const conferencesApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Get all conferences
     getConferences: builder.query<any, void>({
-      query: () => '/conferences',
+      query: () => '/conferences/for-submission',
       providesTags: (result) => {
         // Backend returns array directly, not wrapped in {data: []}
         const conferences = Array.isArray(result) ? result : (result?.data || []);

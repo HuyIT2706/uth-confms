@@ -120,6 +120,16 @@ async function bootstrap() {
     }),
   );
 
+  // Submission Service
+  app.use(
+    '/api/submissions',
+    createProxyMiddleware({
+      target: submissionServiceUrl,
+      pathRewrite: (path) => (path === '/' ? '/api/submissions' : '/api/submissions' + path),
+      ...proxyOptions,
+    }),
+  );
+
   // Review Service: bỏ tiền tố /api/reviews → gốc (/health, /profile,…)
   app.use(
     '/api/reviews',

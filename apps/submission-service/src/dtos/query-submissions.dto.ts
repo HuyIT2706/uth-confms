@@ -53,6 +53,11 @@ export class QuerySubmissionsDto {
     @MaxLength(100)
     search?: string;
 
+    @ApiPropertyOptional({ description: 'Filter by topic', example: 'Machine Learning' })
+    @IsOptional()
+    @IsString()
+    topic?: string;
+
     @ApiPropertyOptional({ description: 'Sort by field', enum: ['createdAt', 'updatedAt', 'title'], default: 'createdAt' })
     @IsOptional()
     @IsIn(['createdAt', 'updatedAt', 'title'])

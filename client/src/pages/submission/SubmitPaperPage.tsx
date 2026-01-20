@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCreateSubmissionMutation } from '../../redux/api/submissionsApi';
+import { useGetConferencesQuery } from '../../redux/api/conferencesApi';
 import { createSubmissionFormData } from '../../utils/api-helpers';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Add, CloudUpload, Close } from '@mui/icons-material';
 import bgUth from '../../assets/bg_uth.svg';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface CoAuthor {
     id: number;
@@ -13,6 +16,8 @@ interface CoAuthor {
 }
 
 const SubmitPaperPage = () => {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [coAuthors, setCoAuthors] = useState<CoAuthor[]>([
         { id: 1, name: '', email: '', affiliation: '' }
     ]);
@@ -20,9 +25,18 @@ const SubmitPaperPage = () => {
     const [title, setTitle] = useState('');
     const [abstract, setAbstract] = useState('');
     const [keywords, setKeywords] = useState('');
-    const [conferenceId, setConferenceId] = useState<number | ''>('');
-    const [trackId, setTrackId] = useState<number | ''>('');
+    const [topic, setTopic] = useState('');
+    const [conferenceId, setConferenceId] = useState('');
     const [createSubmission, { isLoading }] = useCreateSubmissionMutation();
+    const { data: conferencesData, isLoading: loadingConferences } = useGetConferencesQuery();
+
+    // Auto-select conference from URL parameter
+    useEffect(() => {
+        const confIdFromUrl = searchParams.get('conferenceId');
+        if (confIdFromUrl) {
+            setConferenceId(confIdFromUrl);
+        }
+    }, [searchParams]);
 
     const addCoAuthor = () => {
         const newId = coAuthors.length > 0 ? Math.max(...coAuthors.map(a => a.id)) + 1 : 1;
@@ -50,11 +64,15 @@ const SubmitPaperPage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedFile) {
-            alert('Vui lòng chọn file PDF để nộp');
+            toast.error('Vui lòng chọn file PDF để nộp');
             return;
         }
-        if (!conferenceId || !trackId) {
-            alert('Vui lòng chọn Conference ID và Track ID');
+        if (!conferenceId) {
+            toast.error('Vui lòng chọn hội nghị');
+            return;
+        }
+        if (!topic) {
+            toast.error('Vui lòng nhập chủ đề bài báo');
             return;
         }
 
@@ -62,18 +80,20 @@ const SubmitPaperPage = () => {
             title,
             abstract,
             keywords,
-            trackId: Number(trackId),
-            conferenceId: Number(conferenceId),
+            topic,
+            conferenceId,
         };
 
         const formData = createSubmissionFormData(data, selectedFile);
 
         try {
             await createSubmission(formData).unwrap();
-            alert('Nộp bài thành công');
-        } catch (err) {
+            toast.success('Nộp bài thành công!');
+            setTimeout(() => navigate('/my-submissions'), 1500);
+        } catch (err: any) {
             console.error('Submit failed', err);
-            alert('Nộp bài thất bại');
+            const errorMsg = err?.data?.message || 'Nộp bài thất bại. Vui lòng thử lại.';
+            toast.error(errorMsg);
         }
     };
 
@@ -163,17 +183,81 @@ const SubmitPaperPage = () => {
                         </div>
                     </div>
 
-                    {/* Select Conference & Track (IDs) */}
+                    {/* Select Conference & Topic */}
                     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                        <h2 className="text-base font-bold text-gray-900 mb-4">Thông tin hội nghị / phân ban</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <h2 className="text-base font-bold text-gray-900 mb-4">Thông tin hội nghị</h2>
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Conference ID *</label>
-                                <input type="number" value={conferenceId as any} onChange={(e) => setConferenceId(e.target.value ? Number(e.target.value) : '')} className="w-full px-3 py-2 border border-gray-300 rounded-md" required />
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                    {searchParams.get('conferenceId') ? 'Hội nghị đã chọn' : 'Chọn hội nghị *'}
+                                </label>
+                                {searchParams.get('conferenceId') ? (
+                                    // Show selected conference info (read-only)
+                                    loadingConferences ? (
+                                        <div className="text-sm text-gray-500">Đang tải thông tin hội nghị...</div>
+                                    ) : (() => {
+                                        const conferences = Array.isArray(conferencesData) ? conferencesData : conferencesData?.data || [];
+                                        const selectedConf = conferences.find((c: any) => String(c.id) === String(conferenceId));
+
+                                        // If conference found, show info; otherwise show dropdown
+                                        return selectedConf ? (
+                                            <div className="w-full px-4 py-3 border-2 border-[#008689] bg-[#e6f7f7] rounded-md text-sm">
+                                                <div>
+                                                    <div className="font-semibold text-gray-900">{selectedConf.name} ({selectedConf.acronym})</div>
+                                                    <div className="text-xs text-gray-600 mt-1">
+                                                        Deadline: {new Date(selectedConf.deadlines?.submission || '').toLocaleDateString('vi-VN')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            // Fallback to dropdown if conference not found
+                                            <select
+                                                value={conferenceId}
+                                                onChange={(e) => setConferenceId(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#008689] focus:border-[#008689] text-sm bg-gray-50"
+                                                required
+                                            >
+                                                <option value="">-- Chọn hội nghị --</option>
+                                                {conferences.map((conf: any) => (
+                                                    <option key={conf.id} value={conf.id}>
+                                                        {conf.name} ({conf.acronym}) - Deadline: {new Date(conf.deadlines?.submission || '').toLocaleDateString('vi-VN')}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        );
+                                    })()
+                                ) : loadingConferences ? (
+                                    <div className="text-sm text-gray-500">Đang tải danh sách hội nghị...</div>
+                                ) : (
+                                    // Show dropdown for manual selection
+                                    <select
+                                        value={conferenceId}
+                                        onChange={(e) => setConferenceId(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#008689] focus:border-[#008689] text-sm bg-gray-50"
+                                        required
+                                    >
+                                        <option value="">-- Chọn hội nghị --</option>
+                                        {(Array.isArray(conferencesData) ? conferencesData : conferencesData?.data || []).map((conf: any) => (
+                                            <option key={conf.id} value={conf.id}>
+                                                {conf.name} ({conf.acronym}) - Deadline: {new Date(conf.deadlines?.submission || '').toLocaleDateString('vi-VN')}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Track ID *</label>
-                                <input type="number" value={trackId as any} onChange={(e) => setTrackId(e.target.value ? Number(e.target.value) : '')} className="w-full px-3 py-2 border border-gray-300 rounded-md" required />
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Chủ đề bài báo *</label>
+                                <input
+                                    type="text"
+                                    value={topic}
+                                    onChange={(e) => setTopic(e.target.value)}
+                                    placeholder="Nhập chủ đề bài báo (ví dụ: Machine Learning, AI, etc.)"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#008689] focus:border-[#008689] text-sm bg-gray-50"
+                                    required
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Chủ đề nghiên cứu của bài báo
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -307,7 +391,7 @@ const SubmitPaperPage = () => {
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#008689] transition-colors">
                             <input
                                 type="file"
-                                accept=".pdf"
+                                accept=".docx"
                                 onChange={handleFileSelect}
                                 className="hidden"
                                 id="pdf-upload"
@@ -329,10 +413,10 @@ const SubmitPaperPage = () => {
                                 ) : (
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">
-                                            Kéo thả file PDF vào đây
+                                            Kéo thả file DOCX vào đây
                                         </p>
                                         <p className="text-xs text-gray-500">
-                                            Chỉ chấp nhận file PDF, tối đa 10MB
+                                            Chỉ chấp nhận file DOCX, tối đa 10MB
                                         </p>
                                     </div>
                                 )}
@@ -351,13 +435,15 @@ const SubmitPaperPage = () => {
 
                         <button
                             type="submit"
-                            className="px-6 py-2 bg-[#008689] hover:bg-[#006666] text-white font-medium rounded-md transition-colors duration-200 text-sm"
+                            disabled={isLoading}
+                            className="px-6 py-2 bg-[#008689] hover:bg-[#006666] text-white font-medium rounded-md transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Nộp bài
+                            {isLoading ? 'Đang nộp...' : 'Nộp bài'}
                         </button>
                     </div>
                 </form>
             </div>
+            <ToastContainer position="top-right" autoClose={3000} />
         </div>
     );
 };
