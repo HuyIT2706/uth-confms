@@ -8,11 +8,12 @@ import { Invitation } from './entities/invitation.entity';
 import { ReviewerAssignment } from './entities/reviewer-assignment.entity';
 import { Review } from './entities/review.entity';
 import { ReviewHistory } from './entities/review-history.entity';
+import { SubmissionClient } from './clients/submission.client';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Invitation, ReviewerAssignment, Review, ReviewHistory])],
   controllers: [ReviewerController, ReviewerAssignmentsController, ReviewerAssignmentsInternalController],
-  providers: [ReviewerService],
+  providers: [ReviewerService, SubmissionClient],
   exports: [ReviewerService],
 })
 export class ReviewerModule { }

@@ -106,9 +106,9 @@ services:
       - DB_DATABASE=db_review
       - DB_REVIEW_SYNC=true
       - JWT_ACCESS_SECRET=jZE6YIUoP_j7SOTLPWgS8kSfX5g4dlOmPMWJVNLMOyg-SMoqXiMRkR0ocJQEGr9HVUjonNIlZNwHzduFfOCJOQ
-      - IDENTITY_SERVICE_URL=http://identity-service:3001
+      - IDENTITY_SERVICE_URL=http://identity-service:3001/api
       - CONFERENCE_SERVICE_URL=http://conference-service:3002/api
-      - SUBMISSION_SERVICE_URL=http://submission-service:3003
+      - SUBMISSION_SERVICE_URL=http://submission-service:3003/api
     depends_on:
       - postgres
       - identity-service

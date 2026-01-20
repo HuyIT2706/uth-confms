@@ -153,6 +153,24 @@ export class ReviewerAssignmentsController {
   }
 
   /**
+   * Lấy danh sách submissions của một hội nghị
+   * Được gọi khi reviewer chấp nhận một assignment và muốn xem danh sách các bài báo
+   */
+  @Get(':conferenceId/submissions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Lấy danh sách submissions của một hội nghị',
+    description: 'Reviewer xem danh sách tất cả bài báo đã nộp cho hội nghị này. Thông tin tác giả không được tiết lộ.'
+  })
+  @ApiParam({ name: 'conferenceId', description: 'ID hội nghị', example: '23f82779-00f7-4a83-9750-337242611900' })
+  @ApiResponse({ status: 200, description: 'Danh sách submissions' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy submissions' })
+  async getSubmissionsByConference(@Param('conferenceId') conferenceId: string) {
+    return this.reviewerService.getSubmissionsByConference(conferenceId);
+  }
+
+  /**
    * Service-to-service: Conference-service tạo assignment cho reviewer
    */
   @Post()

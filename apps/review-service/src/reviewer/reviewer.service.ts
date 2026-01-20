@@ -7,6 +7,7 @@ import type { IncomingInvitationDto } from './dto/incoming-invitation.dto';
 import { Review } from './entities/review.entity';
 import { ReviewHistory } from './entities/review-history.entity';
 import { SubmitReviewDto } from './dto/submit-review.dto';
+import { SubmissionClient } from './clients/submission.client';
 
 @Injectable()
 export class ReviewerService {
@@ -21,6 +22,7 @@ export class ReviewerService {
     private readonly reviewRepo: Repository<Review>,
     @InjectRepository(ReviewHistory)
     private readonly historyRepo: Repository<ReviewHistory>,
+    private readonly submissionClient: SubmissionClient,
   ) { }
 
   async createInvitation(payload: Partial<IncomingInvitationDto>): Promise<Invitation> {
@@ -224,6 +226,22 @@ export class ReviewerService {
       }
     } catch (err: any) {
       this.logger.error(`Exception notifying conference-service about topics update: ${err.message}`, err.stack);
+    }
+  }
+
+  /**
+   * Lấy danh sách submissions của một conference
+   * Được gọi khi reviewer chấp nhận một assignment
+   */
+  async getSubmissionsByConference(conferenceId: string) {
+    this.logger.log(`Fetching submissions for conference: ${conferenceId}`);
+    
+    try {
+      const result = await this.submissionClient.getSubmissionsByConference(conferenceId);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error fetching submissions: ${error}`);
+      throw error;
     }
   }
 

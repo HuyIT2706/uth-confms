@@ -4,7 +4,8 @@ import {
   BadRequestException,
   InternalServerErrorException,
   NotFoundException,
-  ForbiddenException
+  ForbiddenException,
+  Logger
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,6 +21,7 @@ import { SubmissionStatus } from './shared/constants/submission-status.enum';
 @Injectable()
 export class SubmissionServiceService implements OnModuleInit {
   private supabase: SupabaseClient;
+  private readonly logger = new Logger(SubmissionServiceService.name);
 
   constructor(
     @InjectRepository(Submission) private subRepo: Repository<Submission>,
@@ -352,18 +354,46 @@ export class SubmissionServiceService implements OnModuleInit {
   // --- API 4: LẤY DANH SÁCH SUBMISSIONS THEO CONFERENCE ---
   async getSubmissionsByConference(conferenceId: string) {
     try {
+      this.logger.log(`[getSubmissionsByConference] Fetching submissions for conference: ${conferenceId}`);
+      
       const submissions = await this.subRepo.find({
         where: { conference_id: conferenceId },
         relations: ['files', 'authors'],
         order: { created_at: 'DESC' }
       });
 
+      this.logger.log(`[getSubmissionsByConference] Found ${submissions.length} submissions`);
+      
+      if (submissions.length > 0) {
+        this.logger.log(`[getSubmissionsByConference] First submission: ${JSON.stringify(submissions[0])}`);
+      } else {
+        const allSubmissions = await this.subRepo.find();
+        this.logger.log(`[getSubmissionsByConference] Total submissions in DB: ${allSubmissions.length}`);
+        if (allSubmissions.length > 0) {
+          this.logger.log(`[getSubmissionsByConference] All submissions: ${JSON.stringify(allSubmissions.map(s => ({ id: s.id, conference_id: s.conference_id })))}`);
+        }
+      }
+
+      // Filter sensitive information - remove authors and created_by for privacy
+      const filteredSubmissions = submissions.map(sub => ({
+        id: sub.id,
+        conference_id: sub.conference_id,
+        title: sub.title,
+        abstract: sub.abstract,
+        topic: sub.topic,
+        status: sub.status,
+        created_at: sub.created_at,
+        updated_at: sub.updated_at,
+        files: sub.files || []
+      }));
+
       return {
         status: 'success',
-        data: submissions,
-        total: submissions.length
+        data: filteredSubmissions,
+        total: filteredSubmissions.length
       };
     } catch (error) {
+      this.logger.error(`[getSubmissionsByConference] Error: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Lỗi khi lấy danh sách bài nộp theo hội nghị');
     }
   }
