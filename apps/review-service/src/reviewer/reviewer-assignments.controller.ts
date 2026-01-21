@@ -76,12 +76,16 @@ export class ReviewerAssignmentsController {
     if (!reviewerId || isNaN(reviewerId)) throw new BadRequestException('Token missing user info');
 
     try {
-      return await this.reviewerService.acceptAssignment(conferenceAssignmentId, reviewerId) as any;
+      const result = await this.reviewerService.acceptAssignment(conferenceAssignmentId, reviewerId) as any;
+      return result;
     } catch (error: any) {
-      if (error instanceof ForbiddenException || error instanceof NotFoundException) {
+      if (error instanceof ForbiddenException) {
         throw error;
       }
-      throw new BadRequestException(error.message);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error?.message || 'Failed to accept assignment');
     }
   }
 

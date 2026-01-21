@@ -292,9 +292,20 @@ const AssignmentListPage = () => {
             };
             showToast[action === 'accept' ? 'success' : 'info'](messages[action]);
             setSelectedAssignment(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error performing action:', error);
-            showToast.error('Có lỗi xảy ra khi cập nhật phân công');
+            let errorMessage = 'Có lỗi xảy ra khi cập nhật phân công';
+            
+            // Try to get more specific error message
+            if (error?.data?.message) {
+                errorMessage = error.data.message;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+            
+            showToast.error(errorMessage);
         } finally {
             setIsSubmittingAction(false);
         }
@@ -516,21 +527,21 @@ const AssignmentListPage = () => {
                                         <div className="mb-4 pb-4 border-b border-gray-200">
                                             <button
                                                 onClick={() => {
-                                                    if (assignment.status === 'PENDING') {
+                                                    if (assignment.status !== 'ACCEPTED') {
                                                         showToast.warning('Bạn phải chấp nhận lời mời thì mới xem được danh sách bài nộp');
                                                         return;
                                                     }
                                                     toggleSubmissions(assignment.conferenceId);
                                                 }}
-                                                disabled={assignment.status === 'PENDING'}
+                                                disabled={assignment.status !== 'ACCEPTED'}
                                                 className={`w-full flex items-center justify-between p-3 rounded-lg font-semibold transition-colors ${
-                                                    assignment.status === 'PENDING'
+                                                    assignment.status !== 'ACCEPTED'
                                                         ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                                                         : 'bg-[#008689]/10 text-[#008689] hover:bg-[#008689]/20'
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    {assignment.status === 'PENDING' ? (
+                                                    {assignment.status !== 'ACCEPTED' ? (
                                                         <Lock className="w-4 h-4" />
                                                     ) : (
                                                         <LockOpen className="w-4 h-4" />
@@ -539,7 +550,7 @@ const AssignmentListPage = () => {
                                                     Danh sách bài nộp
                                                 </div>
                                                 <span className="text-xs bg-[#008689]/20 px-2 py-1 rounded-full">
-                                                    {assignment.status === 'PENDING' ? '🔒 Khóa' : '🔓 Mở'}
+                                                    {assignment.status !== 'ACCEPTED' ? '🔒 Khóa' : '🔓 Mở'}
                                                 </span>
                                             </button>
                                             
@@ -681,7 +692,13 @@ const AssignmentListPage = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <SubmissionsList conferenceId={detailAssignment.conferenceId} isLocked={false} />
+                                    <>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <LockOpen className="w-5 h-5 text-[#008689]" />
+                                            <h3 className="text-lg font-bold text-gray-900">Danh sách bài nộp</h3>
+                                        </div>
+                                        <SubmissionsList conferenceId={detailAssignment.conferenceId} isLocked={false} />
+                                    </>
                                 )}
 
                                 {/* Topic */}
@@ -696,8 +713,6 @@ const AssignmentListPage = () => {
                                         </span>
                                     </div>
                                 )}
-
-                                {/* Abstract */}
                                 {detailAssignment.submissionInfo?.abstract && (
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
