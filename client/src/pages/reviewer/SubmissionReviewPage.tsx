@@ -74,6 +74,8 @@ const SubmissionReviewPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [tabValue, setTabValue] = useState(0);
+    const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<any>(null);
     const [review, setReview] = useState({
         score: 5,
         content: '',
@@ -113,6 +115,11 @@ const SubmissionReviewPage = () => {
             </div>
         );
     }
+
+    const handleViewDocument = (file: any) => {
+        setSelectedFile(file);
+        setShowDocumentViewer(true);
+    };
 
     const formatDate = (dateString: string | undefined) => {
         if (!dateString) return 'N/A';
@@ -289,24 +296,59 @@ const SubmissionReviewPage = () => {
                                 <div className="pt-6 border-t border-gray-200">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Tệp bài nộp</h3>
                                     {submission.files.map((file) => (
-                                        <div key={file.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-2">
-                                            <div className="flex-1">
-                                                <p className="font-semibold text-gray-900">
-                                                    Phiên bản {file.version}
-                                                </p>
-                                                <p className="text-sm text-gray-600">
-                                                    Tải lên: {new Date(file.uploadedAt).toLocaleDateString('vi-VN')}
-                                                </p>
+                                        <div key={file.id} className="mb-4">
+                                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-2">
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-gray-900">
+                                                        Phiên bản {file.version}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Tải lên: {new Date(file.uploadedAt).toLocaleDateString('vi-VN')}
+                                                    </p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleViewDocument(file)}
+                                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-semibold text-sm"
+                                                    >
+                                                        <Description className="w-4 h-4" />
+                                                        Xem trực tiếp
+                                                    </button>
+                                                    <button
+                                                        onClick={() => window.open(file.filePath, '_blank')}
+                                                        className="flex items-center gap-2 px-4 py-2 bg-[#008689] text-white rounded hover:bg-[#006666] transition-colors font-semibold text-sm"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                        Tải về
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => window.open(file.filePath, '_blank')}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-[#008689] text-white rounded hover:bg-[#006666] transition-colors font-semibold text-sm"
-                                                >
-                                                    <Download className="w-4 h-4" />
-                                                    Tải về
-                                                </button>
-                                            </div>
+                                            
+                                            {/* Document Viewer */}
+                                            {showDocumentViewer && selectedFile?.id === file.id && (
+                                                <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+                                                    <div className="bg-gray-100 px-4 py-2 border-b border-gray-300 flex items-center justify-between">
+                                                        <span className="text-sm font-medium text-gray-700">
+                                                            Xem tài liệu - Phiên bản {file.version}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setShowDocumentViewer(false)}
+                                                            className="text-gray-500 hover:text-gray-700"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                    <div className="h-[600px] w-full">
+                                                        <iframe
+                                                            src={file.filePath}
+                                                            className="w-full h-full border-0"
+                                                            title={`Xem tài liệu phiên bản ${file.version}`}
+                                                            onLoad={() => console.log('Document loaded successfully')}
+                                                            onError={() => console.error('Failed to load document')}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
