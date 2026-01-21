@@ -6,6 +6,7 @@ import { ReviewerAssignment, ReviewerAssignmentStatus } from './entities/reviewe
 import type { IncomingInvitationDto } from './dto/incoming-invitation.dto';
 import { Review } from './entities/review.entity';
 import { ReviewHistory } from './entities/review-history.entity';
+import { Submission } from './entities/submission.entity';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 import { SubmissionClient } from './clients/submission.client';
 
@@ -22,6 +23,8 @@ export class ReviewerService {
     private readonly reviewRepo: Repository<Review>,
     @InjectRepository(ReviewHistory)
     private readonly historyRepo: Repository<ReviewHistory>,
+    @InjectRepository(Submission)
+    private readonly submissionRepo: Repository<Submission>,
     private readonly submissionClient: SubmissionClient,
   ) { }
 
@@ -237,11 +240,80 @@ export class ReviewerService {
     this.logger.log(`Fetching submissions for conference: ${conferenceId}`);
     
     try {
-      const result = await this.submissionClient.getSubmissionsByConference(conferenceId);
-      return result;
+      // Fetch từ database
+      const submissions = await this.submissionRepo.find({
+        where: { conference_id: conferenceId },
+        relations: ['files'],
+        order: { created_at: 'DESC' },
+      });
+
+      // Nếu không có submissions trong database, fetch từ external submission service
+      if (submissions.length === 0) {
+        this.logger.log(`No submissions found in database for conference ${conferenceId}, fetching from submission service`);
+        const externalResult = await this.submissionClient.getSubmissionsByConference(conferenceId);
+        
+        // Sync vào database
+        if (externalResult?.data && Array.isArray(externalResult.data)) {
+          for (const submissionData of externalResult.data) {
+            await this.syncSubmissionToDatabase(submissionData);
+          }
+          // Fetch lại từ database
+          return this.submissionRepo.find({
+            where: { conference_id: conferenceId },
+            relations: ['files'],
+            order: { created_at: 'DESC' },
+          });
+        }
+        return externalResult;
+      }
+
+      return {
+        status: 'success',
+        data: submissions,
+        total: submissions.length,
+      };
     } catch (error) {
       this.logger.error(`Error fetching submissions: ${error}`);
       throw error;
+    }
+  }
+
+  /**
+   * Sync submission từ external submission service vào database
+   */
+  private async syncSubmissionToDatabase(submissionData: any): Promise<any> {
+    try {
+      const existingSubmission = await this.submissionRepo.findOne({
+        where: { id: submissionData.id }
+      });
+
+      if (!existingSubmission) {
+        const submission = this.submissionRepo.create({
+          id: submissionData.id,
+          conference_id: submissionData.conference_id,
+          title: submissionData.title,
+          abstract: submissionData.abstract,
+          topic: submissionData.topic,
+          status: submissionData.status,
+          created_by: submissionData.created_by,
+          created_at: new Date(submissionData.created_at),
+          updated_at: new Date(submissionData.updated_at),
+          files: submissionData.files?.map((file: any) => ({
+            id: file.id,
+            submission_id: submissionData.id,
+            file_path: file.file_path,
+            version: file.version,
+            uploaded_at: new Date(file.uploaded_at),
+          })) || [],
+        });
+        await this.submissionRepo.save(submission);
+        this.logger.log(`Synced submission ${submissionData.id} to database`);
+        return { id: submissionData.id, status: 'synced' };
+      }
+      return { id: submissionData.id, status: 'already_exists' };
+    } catch (error) {
+      this.logger.warn(`Failed to sync submission ${submissionData.id}: ${error}`);
+      return { id: submissionData.id, status: 'failed', error: String(error) };
     }
   }
 
@@ -547,6 +619,15 @@ export class ReviewerService {
       throw new ForbiddenException('You must accept the assignment before reviewing');
     }
 
+    // Kiểm tra submission tồn tại và có trong database
+    const submission = await this.submissionRepo.findOne({
+      where: { id: dto.submissionId }
+    });
+
+    if (!submission) {
+      throw new NotFoundException(`Submission with id ${dto.submissionId} not found`);
+    }
+
     // Check deadline from Invitation
     // Invitation is linked via reviewerId and conferenceId
     const invitation = await this.repo.findOne({
@@ -587,11 +668,13 @@ export class ReviewerService {
       review.score = dto.score;
       review.content = dto.content;
       review.internalContent = dto.internalContent;
+      review.submissionId = dto.submissionId;
       review.updatedAt = new Date();
     } else {
       // Create new review
       review = this.reviewRepo.create({
         conferenceAssignmentId,
+        submissionId: dto.submissionId,
         score: dto.score,
         content: dto.content,
         internalContent: dto.internalContent,
@@ -600,7 +683,7 @@ export class ReviewerService {
     }
 
     const saved = await this.reviewRepo.save(review);
-    this.logger.log(`Review submitted for assignment ${conferenceAssignmentId} by reviewer ${reviewerId}`);
+    this.logger.log(`Review submitted for assignment ${conferenceAssignmentId} by reviewer ${reviewerId} for submission ${dto.submissionId}`);
     return saved;
   }
 
@@ -685,6 +768,38 @@ export class ReviewerService {
       internalContent: r.internalContent,
       updatedAt: r.updatedAt
     }));
+  }
+
+  /**
+   * Public method để sync submissions từ submission-service vào database
+   * Có thể gọi từ internal controller hoặc manually
+   */
+  async syncSubmissionsForConference(conferenceId: string): Promise<any> {
+    this.logger.log(`Syncing submissions for conference: ${conferenceId}`);
+    
+    try {
+      const externalResult = await this.submissionClient.getSubmissionsByConference(conferenceId);
+      
+      if (externalResult?.data && Array.isArray(externalResult.data)) {
+        const syncResults: any[] = [];
+        for (const submissionData of externalResult.data) {
+          const result = await this.syncSubmissionToDatabase(submissionData);
+          syncResults.push(result);
+        }
+        this.logger.log(`Successfully synced ${syncResults.length} submissions for conference ${conferenceId}`);
+        return {
+          status: 'success',
+          synced: syncResults.length,
+          total: externalResult.data.length,
+          data: syncResults
+        };
+      }
+      
+      return externalResult;
+    } catch (error) {
+      this.logger.error(`Error syncing submissions: ${error}`);
+      throw error;
+    }
   }
 
 }

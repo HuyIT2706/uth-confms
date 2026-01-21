@@ -13,6 +13,8 @@ import { Invitation } from './reviewer/entities/invitation.entity';
 import { ReviewerAssignment } from './reviewer/entities/reviewer-assignment.entity';
 import { Review } from './reviewer/entities/review.entity';
 import { ReviewHistory } from './reviewer/entities/review-history.entity';
+import { Submission } from './reviewer/entities/submission.entity';
+import { SubmissionFile } from './reviewer/entities/submission-file.entity';
 
 @Module({
   imports: [
@@ -33,7 +35,7 @@ import { ReviewHistory } from './reviewer/entities/review-history.entity';
           return {
             type: 'postgres',
             url,
-            entities: [Invitation, ReviewerAssignment, Review, ReviewHistory],
+            entities: [Invitation, ReviewerAssignment, Review, ReviewHistory, Submission, SubmissionFile],
             synchronize,
             ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
           };
@@ -58,7 +60,7 @@ import { ReviewHistory } from './reviewer/entities/review-history.entity';
           username,
           password,
           database,
-          entities: [Invitation, ReviewerAssignment, Review, ReviewHistory],
+          entities: [Invitation, ReviewerAssignment, Review, ReviewHistory, Submission, SubmissionFile],
           synchronize,
           ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
         };

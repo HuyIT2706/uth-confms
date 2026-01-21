@@ -48,3 +48,19 @@ export class SubmissionInfoForReviewDto {
   createdAt: string;
   abstract?: string;
 }
+
+/**
+ * DTO cho submission lưu trong database của review-service
+ */
+export class StoredSubmissionDto {
+  id!: number;
+  conference_id!: string;
+  title!: string;
+  abstract?: string;
+  topic!: string;
+  status!: string;
+  created_by!: number;
+  created_at!: Date;
+  updated_at!: Date;
+  files?: SubmissionFileDto[];
+}

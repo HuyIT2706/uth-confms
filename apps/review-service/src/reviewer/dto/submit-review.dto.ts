@@ -2,6 +2,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, Min, Max, IsString, IsOptional, MaxLength, IsNotEmpty } from 'class-validator';
 
 export class SubmitReviewDto {
+    @ApiProperty({ description: 'ID của bài nộp cần đánh giá', example: 1 })
+    @IsInt()
+    @IsNotEmpty()
+    submissionId!: number;
+
     @ApiProperty({ description: 'Điểm số bài báo (0-10)', example: 8 })
     @IsInt()
     @Min(0)

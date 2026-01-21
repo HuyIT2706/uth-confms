@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, OneToMany, ManyToOne } from 'typeorm';
 import { ReviewerAssignment } from './reviewer-assignment.entity';
 import { ReviewHistory } from './review-history.entity';
+import { Submission } from './submission.entity';
 
 @Entity({ name: 'reviews' })
 export class Review {
@@ -10,6 +11,14 @@ export class Review {
     // Link to the assignment (which contains reviewerId and submissionId)
     @Column({ type: 'varchar' })
     conferenceAssignmentId!: string;
+
+    // FK to Submission
+    @Column({ type: 'int', nullable: true })
+    submissionId?: number;
+
+    @ManyToOne(() => Submission)
+    @JoinColumn({ name: 'submissionId', referencedColumnName: 'id' })
+    submission?: Submission;
 
     // FK relation for easier joins if needed, logic primarily uses conferenceAssignmentId
     @OneToOne(() => ReviewerAssignment)

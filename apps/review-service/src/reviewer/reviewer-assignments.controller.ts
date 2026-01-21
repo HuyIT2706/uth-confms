@@ -243,6 +243,8 @@ export class ReviewerAssignmentsController {
   }
 
   @Post(':id/review')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Nộp hoặc cập nhật bài đánh giá' })
   @ApiResponse({ status: 201, description: 'Review submitted successfully' })
   async submitReview(
