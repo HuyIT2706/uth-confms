@@ -91,6 +91,24 @@ const SubmissionListPage = () => {
         }
     };
 
+    const handleNavigateToSubmission = (submissionId: number | string) => {
+        // Try to find assignment by submission ID
+        let assignmentId = submissionAssignmentMap[Number(submissionId)];
+        
+        // If not found, use the default assignment for this conference
+        if (!assignmentId && defaultAssignmentIdForConference) {
+            assignmentId = defaultAssignmentIdForConference;
+        }
+        
+        if (assignmentId) {
+            navigate(`/reviewer/submissions/${assignmentId}/${submissionId}`);
+        } else {
+            console.warn(`No assignment found for submission ${submissionId} in conference ${conferenceId}`);
+            // Don't navigate if no assignment found - this prevents broken URLs
+            showToast.error('Không tìm thấy assignment cho bài nộp này');
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header Section */}
@@ -160,17 +178,7 @@ const SubmissionListPage = () => {
                             {filteredSubmissions.map((submission) => (
                                 <div
                                     key={submission.id}
-                                    onClick={() => {
-                                        const assignmentId = submissionAssignmentMap[Number(submission.id)];
-                                        if (assignmentId) {
-                                            // Navigate with assignmentId as primary param
-                                            navigate(`/reviewer/submissions/${assignmentId}/${submission.id}`);
-                                        } else {
-                                            console.warn(`No assignment found for submission ${submission.id}`);
-                                            // Don't navigate if no assignment found - this prevents broken URLs
-                                            showToast.error('Không tìm thấy assignment cho bài nộp này');
-                                        }
-                                    }}
+                                    onClick={() => handleNavigateToSubmission(submission.id)}
                                     className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-[#008689] cursor-pointer group overflow-hidden"
                                 >
                                     {/* Header */}
@@ -234,21 +242,7 @@ const SubmissionListPage = () => {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // Try to find assignment by submission ID
-                                                let assignmentId = submissionAssignmentMap[Number(submission.id)];
-                                                
-                                                // If not found, use the default assignment for this conference
-                                                if (!assignmentId && defaultAssignmentIdForConference) {
-                                                    assignmentId = defaultAssignmentIdForConference;
-                                                }
-                                                
-                                                if (assignmentId) {
-                                                    navigate(`/reviewer/submissions/${assignmentId}/${submission.id}`);
-                                                } else {
-                                                    console.warn(`No assignment found for submission ${submission.id} in conference ${conferenceId}`);
-                                                    // Don't navigate if no assignment found - this prevents broken URLs
-                                                    showToast.error('Không tìm thấy assignment cho bài nộp này');
-                                                }
+                                                handleNavigateToSubmission(submission.id);
                                             }}
                                             className="w-full py-2 px-3 text-[#008689] font-semibold text-sm hover:bg-[#008689]/10 rounded transition-colors"
                                         >
