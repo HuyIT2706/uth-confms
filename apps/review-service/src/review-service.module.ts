@@ -15,6 +15,7 @@ import { Review } from './reviewer/entities/review.entity';
 import { ReviewHistory } from './reviewer/entities/review-history.entity';
 import { Submission } from './reviewer/entities/submission.entity';
 import { SubmissionFile } from './reviewer/entities/submission-file.entity';
+import { DiscussionComment } from './reviewer/entities/discussion-comment.entity';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { SubmissionFile } from './reviewer/entities/submission-file.entity';
           return {
             type: 'postgres',
             url,
-            entities: [Invitation, ReviewerAssignment, Review, ReviewHistory, Submission, SubmissionFile],
+            entities: [Invitation, ReviewerAssignment, Review, ReviewHistory, Submission, SubmissionFile, DiscussionComment],
             synchronize,
             ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
           };
@@ -60,7 +61,7 @@ import { SubmissionFile } from './reviewer/entities/submission-file.entity';
           username,
           password,
           database,
-          entities: [Invitation, ReviewerAssignment, Review, ReviewHistory, Submission, SubmissionFile],
+          entities: [Invitation, ReviewerAssignment, Review, ReviewHistory, Submission, SubmissionFile, DiscussionComment],
           synchronize,
           ssl: config.get('DB_SSL') ? { rejectUnauthorized: false } : false,
         };

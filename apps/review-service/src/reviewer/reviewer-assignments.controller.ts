@@ -4,6 +4,7 @@ import { ReviewerService } from './reviewer.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ReviewerAssignmentDto } from './dto/reviewer-assignment.dto';
 import { SubmitReviewDto } from './dto/submit-review.dto';
+import { AddDiscussionCommentDto } from './dto/discussion-comment.dto';
 import type { Request } from 'express';
 
 @ApiTags('Reviewer Assignments')
@@ -259,6 +260,8 @@ export class ReviewerAssignmentsController {
   }
 
   @Get(':id/review')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy bài đánh giá của chính mình' })
   async getMyReview(
     @Req() req: Request,
@@ -270,6 +273,8 @@ export class ReviewerAssignmentsController {
   }
 
   @Get(':id/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy lịch sử chỉnh sửa đánh giá' })
   async getReviewHistory(
     @Req() req: Request,
@@ -281,6 +286,8 @@ export class ReviewerAssignmentsController {
   }
 
   @Get(':id/discussion')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy thảo luận nội bộ (các reviews khác)' })
   async getInternalDiscussion(
     @Req() req: Request,
@@ -290,4 +297,41 @@ export class ReviewerAssignmentsController {
     const reviewerId = user.sub;
     return this.reviewerService.getInternalDiscussion(id, reviewerId);
   }
+
+  @Post(':id/discussion')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Thêm comment vào thảo luận nội bộ',
+    description: 'Reviewer thêm bình luận để thảo luận với reviewers khác cùng được phân công'
+  })
+  @ApiResponse({ status: 201, description: 'Comment added successfully' })
+  @ApiForbiddenResponse({ description: 'You must accept the assignment and submit a review first' })
+  async addDiscussionComment(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: AddDiscussionCommentDto
+  ) {
+    const user = (req as any).user;
+    const reviewerId = user.sub;
+    return this.reviewerService.addDiscussionComment(id, reviewerId, dto);
+  }
+
+  @Get(':id/discussion/comments')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Lấy tất cả comments của thảo luận nội bộ',
+    description: 'Lấy danh sách tất cả bình luận thảo luận nội bộ cho một submission cụ thể'
+  })
+  @ApiResponse({ status: 200, description: 'Discussion comments' })
+  async getDiscussionComments(
+    @Req() req: Request,
+    @Param('id') id: string
+  ) {
+    const user = (req as any).user;
+    const reviewerId = user.sub;
+    return this.reviewerService.getDiscussionComments(id, reviewerId);
+  }
 }
+

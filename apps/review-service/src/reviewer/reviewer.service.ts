@@ -7,7 +7,9 @@ import type { IncomingInvitationDto } from './dto/incoming-invitation.dto';
 import { Review } from './entities/review.entity';
 import { ReviewHistory } from './entities/review-history.entity';
 import { Submission } from './entities/submission.entity';
+import { DiscussionComment } from './entities/discussion-comment.entity';
 import { SubmitReviewDto } from './dto/submit-review.dto';
+import { AddDiscussionCommentDto } from './dto/discussion-comment.dto';
 import { SubmissionClient } from './clients/submission.client';
 
 @Injectable()
@@ -25,6 +27,8 @@ export class ReviewerService {
     private readonly historyRepo: Repository<ReviewHistory>,
     @InjectRepository(Submission)
     private readonly submissionRepo: Repository<Submission>,
+    @InjectRepository(DiscussionComment)
+    private readonly discussionCommentRepo: Repository<DiscussionComment>,
     private readonly submissionClient: SubmissionClient,
   ) { }
 
@@ -725,48 +729,146 @@ export class ReviewerService {
     });
     if (!myAssignment) throw new ForbiddenException('Assignment not found');
 
-    // ONLY reviewers who Accepted can assume discussion role (Requirement 3)
+    // ONLY reviewers who Accepted can assume discussion role
     if (myAssignment.status !== ReviewerAssignmentStatus.ACCEPTED) {
       throw new ForbiddenException('You must accept the assignment to view internal discussion');
     }
 
-    // Cần tìm submissionId thực
-    let submissionId = myAssignment.submissionId;
-    if (!submissionId) {
-      if (myAssignment.submissionInfo && (myAssignment.submissionInfo as any).submissionId) {
-        submissionId = String((myAssignment.submissionInfo as any).submissionId);
-      } else if (myAssignment.submissionInfo && (myAssignment.submissionInfo as any).id) {
-        submissionId = String((myAssignment.submissionInfo as any).id);
-      }
-    }
-
-    if (!submissionId) return [];
-
-    // Tìm tất cả assignments của bài báo này trong cùng conference
-    const otherAssignments = await this.assignmentRepo.find({
-      where: {
-        conferenceId: myAssignment.conferenceId,
-        submissionId: submissionId
-      }
+    // Lấy submission ID từ review (nếu đã submit review)
+    const myReview = await this.reviewRepo.findOne({
+      where: { conferenceAssignmentId }
     });
 
-    if (otherAssignments.length === 0) return [];
+    if (!myReview || !myReview.submissionId) {
+      // Nếu chưa submit review, tìm submissions khác trong cùng conference và topic
+      const otherReviews = await this.reviewRepo.find({
+        where: {
+          assignment: {
+            conferenceId: myAssignment.conferenceId,
+            topic: myAssignment.topic
+          }
+        },
+        relations: ['assignment']
+      });
 
-    const assignmentIds = otherAssignments.map(a => a.conferenceAssignmentId);
+      return otherReviews
+        .filter(r => r.assignment.reviewerId !== reviewerId && r.internalContent)
+        .map(r => ({
+          reviewerId: r.assignment.reviewerId === reviewerId ? 'You' : `Reviewer #${r.assignment.reviewerId}`,
+          score: r.score,
+          content: r.content,
+          internalContent: r.internalContent,
+          updatedAt: r.updatedAt
+        }));
+    }
 
-    // Tìm reviews
-    const reviews = await this.reviewRepo.createQueryBuilder('review')
-      .innerJoinAndSelect('review.assignment', 'assignment') // Cần relation trong Entity Review
-      .where('review.conferenceAssignmentId IN (:...ids)', { ids: assignmentIds })
-      .getMany();
+    // Tìm tất cả reviews cho cùng submission
+    const allReviews = await this.reviewRepo.find({
+      where: { submissionId: myReview.submissionId },
+      relations: ['assignment']
+    });
 
-    // Map kết quả để ẩn danh reviewer nhưng hiện nội dung
-    return reviews.map(r => ({
-      reviewerId: r.assignment.reviewerId === reviewerId ? 'You' : `Reviewer #${r.assignment.reviewerId}`,
-      score: r.score,
-      content: r.content,
-      internalContent: r.internalContent,
-      updatedAt: r.updatedAt
+    // Map kết quả để ẩn danh reviewer nhưng hiện nội dung, exclude chính mình
+    return allReviews
+      .filter(r => r.assignment.reviewerId !== reviewerId && r.internalContent)
+      .map(r => ({
+        reviewerId: `Reviewer #${r.assignment.reviewerId}`,
+        score: r.score,
+        content: r.content,
+        internalContent: r.internalContent,
+        updatedAt: r.updatedAt
+      }));
+  }
+
+  /**
+   * Thêm comment vào thảo luận nội bộ
+   */
+  async addDiscussionComment(
+    conferenceAssignmentId: string,
+    reviewerId: number,
+    dto: AddDiscussionCommentDto
+  ): Promise<any> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId, reviewerId }
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException('You are not assigned to this paper');
+    }
+
+    if (assignment.status !== ReviewerAssignmentStatus.ACCEPTED) {
+      throw new ForbiddenException('You must accept the assignment to participate in discussion');
+    }
+
+    // Lấy review của reviewer hiện tại
+    const myReview = await this.reviewRepo.findOne({
+      where: { conferenceAssignmentId }
+    });
+
+    if (!myReview || !myReview.submissionId) {
+      throw new BadRequestException('You must submit a review before participating in discussion');
+    }
+
+    // Tạo discussion comment
+    const comment = this.discussionCommentRepo.create({
+      submission_id: myReview.submissionId,
+      reviewer_id: reviewerId,
+      content: dto.content,
+    });
+
+    const saved = await this.discussionCommentRepo.save(comment);
+    this.logger.log(`Discussion comment added by reviewer ${reviewerId} on submission ${myReview.submissionId}`);
+
+    return {
+      id: saved.id,
+      reviewerId: 'You',
+      content: saved.content,
+      createdAt: saved.created_at,
+      updatedAt: saved.updated_at,
+    };
+  }
+
+  /**
+   * Lấy tất cả discussion comments cho một submission (chỉ reviewers đã submit review của submission đó)
+   */
+  async getDiscussionComments(
+    conferenceAssignmentId: string,
+    reviewerId: number
+  ): Promise<any[]> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { conferenceAssignmentId, reviewerId }
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException('You are not assigned to this paper');
+    }
+
+    if (assignment.status !== ReviewerAssignmentStatus.ACCEPTED) {
+      throw new ForbiddenException('You must accept the assignment to view discussion');
+    }
+
+    // Lấy review của reviewer hiện tại để biết submission ID
+    const myReview = await this.reviewRepo.findOne({
+      where: { conferenceAssignmentId }
+    });
+
+    if (!myReview || !myReview.submissionId) {
+      return [];
+    }
+
+    // Lấy tất cả comments cho submission này
+    const comments = await this.discussionCommentRepo.find({
+      where: { submission_id: myReview.submissionId },
+      order: { created_at: 'DESC' },
+    });
+
+    // Map để ẩn danh nhưng hiện "You" cho reviewer hiện tại
+    return comments.map(c => ({
+      id: c.id,
+      reviewerId: c.reviewer_id === reviewerId ? 'You' : `Reviewer #${c.reviewer_id}`,
+      content: c.content,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
     }));
   }
 
