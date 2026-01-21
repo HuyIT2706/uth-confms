@@ -130,7 +130,7 @@ const SubmissionListPage = () => {
                             {filteredSubmissions.map((submission) => (
                                 <div
                                     key={submission.id}
-                                    onClick={() => navigate(`/reviewer/submissions/${submission.id}`)}
+                                    onClick={() => navigate(`/reviewer/submissions/${conferenceId}/${submission.id}`)}
                                     className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-[#008689] cursor-pointer group overflow-hidden"
                                 >
                                     {/* Header */}
@@ -194,7 +194,7 @@ const SubmissionListPage = () => {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                navigate(`/reviewer/submissions/${submission.id}`);
+                                                navigate(`/reviewer/submissions/${conferenceId}/${submission.id}`);
                                             }}
                                             className="w-full py-2 px-3 text-[#008689] font-semibold text-sm hover:bg-[#008689]/10 rounded transition-colors"
                                         >

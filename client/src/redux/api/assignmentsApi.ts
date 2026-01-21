@@ -19,17 +19,88 @@ interface Assignment {
     // Thêm field khác nếu backend trả về
 }
 
-// Submission type cho reviewer view
+// Submission type cho reviewer view - Backend returns snake_case, we convert to camelCase
 interface ReviewerSubmission {
-    id: string;
+    id: number | string;
     title: string;
     abstract?: string;
+    topic?: string;
     keywords?: string[];
     status?: string;
     authorId?: number;
     authorName?: string;
     createdAt?: string;
     updatedAt?: string;
+    conferenceId?: string;
+    files?: Array<{
+        id: number;
+        submissionId: number;
+        filePath: string;
+        version: number;
+        uploadedAt: string;
+    }>;
+}
+
+// Backend response wrapper for submissions
+interface SubmissionsResponse {
+    status: string;
+    data: Array<{
+        id: number;
+        conference_id: string;
+        title: string;
+        abstract?: string;
+        topic?: string;
+        status: string;
+        created_at: string;
+        updated_at: string;
+        files?: Array<{
+            id: number;
+            submission_id: number;
+            file_path: string;
+            version: number;
+            uploaded_at: string;
+        }>;
+    }>;
+    total: number;
+}
+
+// Review DTO type
+interface SubmitReviewDto {
+    score: number; // 0-10
+    content: string; // Cho tác giả (max 5000)
+    internalContent?: string; // Nội bộ (max 2000)
+}
+
+// Review type khi lấy về
+interface ReviewData {
+    id: string;
+    assignmentId: string;
+    reviewerId: number;
+    score: number;
+    content: string;
+    internalContent?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// Review history item
+interface ReviewHistory {
+    id: string;
+    score: number;
+    content: string;
+    internalContent?: string;
+    editedAt: string;
+    editedBy?: string;
+}
+
+// Discussion item (nhận xét nội bộ từ reviewer khác)
+interface DiscussionItem {
+    id: string;
+    reviewerId: number;
+    reviewerName: string;
+    internalContent: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 // Thống nhất base URL với các API khác (qua gateway)
@@ -160,8 +231,65 @@ export const assignmentsApi = createApi({
         // Lấy danh sách submissions của một conference cho reviewer
         getReviewerSubmissionsByConference: builder.query<ReviewerSubmission[], string>({
             query: (conferenceId) => `/reviewer/assignments/${conferenceId}/submissions`,
+            transformResponse: (response: SubmissionsResponse) => {
+                // Transform snake_case to camelCase and extract the data array
+                return response.data.map(submission => ({
+                    id: submission.id,
+                    title: submission.title,
+                    abstract: submission.abstract,
+                    topic: submission.topic,
+                    status: submission.status,
+                    createdAt: submission.created_at,
+                    updatedAt: submission.updated_at,
+                    conferenceId: submission.conference_id,
+                    files: submission.files?.map(file => ({
+                        id: file.id,
+                        submissionId: file.submission_id,
+                        filePath: file.file_path,
+                        version: file.version,
+                        uploadedAt: file.uploaded_at,
+                    })),
+                }));
+            },
             providesTags: (_result, _error, conferenceId) => [
                 { type: 'ReviewerAssignment', id: `SUBMISSIONS_${conferenceId}` },
+            ],
+        }),
+
+        // Nộp đánh giá cho một bài báo
+        submitReview: builder.mutation<ReviewData, { assignmentId: string; reviewData: SubmitReviewDto }>({
+            query: ({ assignmentId, reviewData }) => ({
+                url: `/reviewer/assignments/${assignmentId}/review`,
+                method: 'POST',
+                body: reviewData,
+            }),
+            invalidatesTags: (_result, _error, { assignmentId }) => [
+                { type: 'ReviewerAssignment', id: assignmentId },
+                { type: 'ReviewerAssignment', id: 'MY_LIST' },
+            ],
+        }),
+
+        // Lấy đánh giá của reviewer cho một bài báo
+        getMyReview: builder.query<ReviewData, string>({
+            query: (assignmentId) => `/reviewer/assignments/${assignmentId}/review`,
+            providesTags: (_result, _error, assignmentId) => [
+                { type: 'ReviewerAssignment', id: `REVIEW_${assignmentId}` },
+            ],
+        }),
+
+        // Lấy lịch sử chỉnh sửa đánh giá
+        getReviewHistory: builder.query<ReviewHistory[], string>({
+            query: (assignmentId) => `/reviewer/assignments/${assignmentId}/history`,
+            providesTags: (_result, _error, assignmentId) => [
+                { type: 'ReviewerAssignment', id: `HISTORY_${assignmentId}` },
+            ],
+        }),
+
+        // Lấy nhận xét nội bộ từ các reviewer khác
+        getInternalDiscussion: builder.query<DiscussionItem[], string>({
+            query: (assignmentId) => `/reviewer/assignments/${assignmentId}/discussion`,
+            providesTags: (_result, _error, assignmentId) => [
+                { type: 'ReviewerAssignment', id: `DISCUSSION_${assignmentId}` },
             ],
         }),
     }),
@@ -181,4 +309,9 @@ export const {
     useRejectReviewerAssignmentMutation,
     useResetReviewerAssignmentStatusMutation,
     useGetReviewerSubmissionsByConferenceQuery,
+    // Review hooks
+    useSubmitReviewMutation,
+    useGetMyReviewQuery,
+    useGetReviewHistoryQuery,
+    useGetInternalDiscussionQuery,
 } = assignmentsApi;

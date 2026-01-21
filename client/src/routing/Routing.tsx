@@ -36,6 +36,7 @@ import InvitationTopicsPage from '../pages/reviewer/InvitationTopicsPage.tsx';
 import AssignmentListPage from '../pages/reviewer/AssignmentListPage.tsx';
 import SubmissionListPage from '../pages/reviewer/SubmissionListPage.tsx';
 import SubmissionsOverviewPage from '../pages/reviewer/SubmissionsOverviewPage.tsx';
+import SubmissionReviewPage from '../pages/reviewer/SubmissionReviewPage.tsx';
 
 const appRouter = createBrowserRouter([
   {
@@ -121,6 +122,10 @@ const appRouter = createBrowserRouter([
       {
         path: 'reviewer/assignments',
         element: <AssignmentListPage />,
+      },
+      {
+        path: 'reviewer/submissions/:conferenceId/:submissionId',
+        element: <SubmissionReviewPage />,
       },
       {
         path: 'reviewer/submissions/:conferenceId',
