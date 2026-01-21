@@ -20,7 +20,7 @@ interface Assignment {
 }
 
 // Submission type cho reviewer view - Backend returns snake_case, we convert to camelCase
-interface ReviewerSubmission {
+export interface ReviewerSubmission {
     id: number | string;
     title: string;
     abstract?: string;
@@ -66,6 +66,7 @@ interface SubmissionsResponse {
 
 // Review DTO type
 interface SubmitReviewDto {
+    submissionId: number; // ID bài nộp cần đánh giá
     score: number; // 0-10
     content: string; // Cho tác giả (max 5000)
     internalContent?: string; // Nội bộ (max 2000)

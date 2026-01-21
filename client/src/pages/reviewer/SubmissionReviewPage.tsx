@@ -20,6 +20,7 @@ import {
     useGetMyReviewQuery,
     useGetReviewHistoryQuery,
     useGetInternalDiscussionQuery,
+    useGetMyReviewerAssignmentsQuery,
 } from '../../redux/api/assignmentsApi';
 import { showToast } from '../../utils/toast';
 
@@ -45,14 +46,30 @@ interface Submission {
 }
 
 const SubmissionReviewPage = () => {
-    const { conferenceId, submissionId } = useParams<{ conferenceId: string; submissionId: string }>();
+    const { assignmentId, submissionId } = useParams<{ 
+        assignmentId: string;
+        submissionId: string;
+    }>();
     const navigate = useNavigate();
     
-    const { data: submissionsData, isLoading: submissionsLoading } = useGetReviewerSubmissionsByConferenceQuery(conferenceId || '');
+    const { data: allAssignments } = useGetMyReviewerAssignmentsQuery();
+    const [conferenceId, setConferenceId] = useState<string>('');
+    
+    // Find the assignment and get conference ID
+    useEffect(() => {
+        if (Array.isArray(allAssignments) && assignmentId) {
+            const assignment = allAssignments.find(a => a.conferenceAssignmentId === assignmentId);
+            if (assignment) {
+                setConferenceId(assignment.conferenceId);
+            }
+        }
+    }, [allAssignments, assignmentId]);
+    
+    const { data: submissionsData, isLoading: submissionsLoading } = useGetReviewerSubmissionsByConferenceQuery(conferenceId || '', { skip: !conferenceId });
     const [submitReview] = useSubmitReviewMutation();
-    const { data: existingReview } = useGetMyReviewQuery(submissionId || '', { skip: !submissionId });
-    const { data: reviewHistory } = useGetReviewHistoryQuery(submissionId || '', { skip: !submissionId });
-    const { data: internalDiscussion } = useGetInternalDiscussionQuery(submissionId || '', { skip: !submissionId });
+    const { data: existingReview } = useGetMyReviewQuery(assignmentId || '', { skip: !assignmentId });
+    const { data: reviewHistory } = useGetReviewHistoryQuery(assignmentId || '', { skip: !assignmentId });
+    const { data: internalDiscussion } = useGetInternalDiscussionQuery(assignmentId || '', { skip: !assignmentId });
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submission, setSubmission] = useState<Submission | null>(null);
@@ -86,12 +103,12 @@ const SubmissionReviewPage = () => {
         }
     }, [existingReview]);
 
-    if (!conferenceId || !submissionId) {
+    if (!assignmentId || !submissionId) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Lỗi</h1>
-                    <p className="text-gray-600">Không tìm thấy bài nộp</p>
+                    <p className="text-gray-600">Không tìm thấy assignment hoặc submission</p>
                 </div>
             </div>
         );
@@ -116,11 +133,23 @@ const SubmissionReviewPage = () => {
             return;
         }
 
+        if (!assignmentId) {
+            showToast.error('Không tìm thấy assignment ID');
+            return;
+        }
+
+        if (!submissionId) {
+            showToast.error('Không tìm thấy submission ID');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
+            const submissionIdNum = Number(submissionId);
             await submitReview({
-                assignmentId: submissionId || '',
+                assignmentId: assignmentId,
                 reviewData: {
+                    submissionId: submissionIdNum,
                     score: review.score,
                     content: review.content,
                     internalContent: review.internalContent || undefined,

@@ -8,19 +8,12 @@ import {
     Event,
 } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
-import { useGetReviewerSubmissionsByConferenceQuery } from '../../redux/api/assignmentsApi';
-
-interface ReviewerSubmission {
-    id: string;
-    title: string;
-    abstract?: string;
-    keywords?: string[];
-    status?: string;
-    authorId?: number;
-    authorName?: string;
-    createdAt?: string;
-    updatedAt?: string;
-}
+import { 
+    useGetReviewerSubmissionsByConferenceQuery,
+    useGetMyReviewerAssignmentsQuery,
+} from '../../redux/api/assignmentsApi';
+import type { ReviewerSubmission } from '../../redux/api/assignmentsApi';
+import { showToast } from '../../utils/toast';
 
 const SubmissionListPage = () => {
     const { conferenceId } = useParams<{ conferenceId: string }>();
@@ -39,7 +32,44 @@ const SubmissionListPage = () => {
     }
 
     const { data: submissionsData, isLoading } = useGetReviewerSubmissionsByConferenceQuery(conferenceId);
+    const { data: assignmentsData, isLoading: isLoadingAssignments } = useGetMyReviewerAssignmentsQuery();
     const submissions: ReviewerSubmission[] = Array.isArray(submissionsData) ? submissionsData : [];
+
+    // Create mapping: submissionId -> conferenceAssignmentId for this conference
+    // Strategy: Build map from assignments, assuming one assignment per reviewer per conference
+    // If no direct submissionId, use the first assignment found for this conference
+    const submissionAssignmentMap: Record<number, string> = {};
+    let defaultAssignmentIdForConference: string | null = null;
+    
+    // CRITICAL: Only build mapping when assignments data is loaded
+    // This prevents incorrect URLs when clicking button on first render
+    if (!isLoadingAssignments && Array.isArray(assignmentsData)) {
+        assignmentsData.forEach((assignment: any) => {
+            if (assignment.conferenceId === conferenceId) {
+                // Store as default for this conference if we don't have one yet
+                if (!defaultAssignmentIdForConference) {
+                    defaultAssignmentIdForConference = assignment.conferenceAssignmentId;
+                }
+                
+                // Try to extract submissionId from various sources
+                let submissionId: number | null = null;
+                
+                // Try direct submissionId field first
+                if (assignment.submissionId && !isNaN(Number(assignment.submissionId))) {
+                    submissionId = Number(assignment.submissionId);
+                } 
+                // Try submissionInfo.id
+                else if (assignment.submissionInfo?.id) {
+                    submissionId = Number(assignment.submissionInfo.id);
+                }
+                
+                // If we found a submissionId, add to map
+                if (submissionId !== null && !isNaN(submissionId)) {
+                    submissionAssignmentMap[submissionId] = assignment.conferenceAssignmentId;
+                }
+            }
+        });
+    }
 
     const filteredSubmissions = submissions.filter((submission) => {
         return (
@@ -109,7 +139,7 @@ const SubmissionListPage = () => {
             {/* Content */}
             <div className="py-8 px-6">
                 <div className="max-w-7xl mx-auto">
-                    {isLoading ? (
+                    {isLoading || isLoadingAssignments ? (
                         <div className="bg-white rounded-xl shadow-md p-12 flex justify-center items-center min-h-96">
                             <CircularProgress />
                         </div>
@@ -130,7 +160,17 @@ const SubmissionListPage = () => {
                             {filteredSubmissions.map((submission) => (
                                 <div
                                     key={submission.id}
-                                    onClick={() => navigate(`/reviewer/submissions/${conferenceId}/${submission.id}`)}
+                                    onClick={() => {
+                                        const assignmentId = submissionAssignmentMap[Number(submission.id)];
+                                        if (assignmentId) {
+                                            // Navigate with assignmentId as primary param
+                                            navigate(`/reviewer/submissions/${assignmentId}/${submission.id}`);
+                                        } else {
+                                            console.warn(`No assignment found for submission ${submission.id}`);
+                                            // Don't navigate if no assignment found - this prevents broken URLs
+                                            showToast.error('Không tìm thấy assignment cho bài nộp này');
+                                        }
+                                    }}
                                     className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-[#008689] cursor-pointer group overflow-hidden"
                                 >
                                     {/* Header */}
@@ -194,7 +234,21 @@ const SubmissionListPage = () => {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                navigate(`/reviewer/submissions/${conferenceId}/${submission.id}`);
+                                                // Try to find assignment by submission ID
+                                                let assignmentId = submissionAssignmentMap[Number(submission.id)];
+                                                
+                                                // If not found, use the default assignment for this conference
+                                                if (!assignmentId && defaultAssignmentIdForConference) {
+                                                    assignmentId = defaultAssignmentIdForConference;
+                                                }
+                                                
+                                                if (assignmentId) {
+                                                    navigate(`/reviewer/submissions/${assignmentId}/${submission.id}`);
+                                                } else {
+                                                    console.warn(`No assignment found for submission ${submission.id} in conference ${conferenceId}`);
+                                                    // Don't navigate if no assignment found - this prevents broken URLs
+                                                    showToast.error('Không tìm thấy assignment cho bài nộp này');
+                                                }
                                             }}
                                             className="w-full py-2 px-3 text-[#008689] font-semibold text-sm hover:bg-[#008689]/10 rounded transition-colors"
                                         >

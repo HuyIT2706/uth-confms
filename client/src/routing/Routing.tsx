@@ -124,7 +124,7 @@ const appRouter = createBrowserRouter([
         element: <AssignmentListPage />,
       },
       {
-        path: 'reviewer/submissions/:conferenceId/:submissionId',
+        path: 'reviewer/submissions/:assignmentId/:submissionId',
         element: <SubmissionReviewPage />,
       },
       {

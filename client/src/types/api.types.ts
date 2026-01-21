@@ -180,3 +180,50 @@ export interface QuerySubmissionsDto extends PaginationParams {
   topic?: string;
 }
 
+// Reviewer Assignment Types
+export interface ReviewerAssignmentDto {
+  conferenceAssignmentId: string;
+  conferenceId: string;
+  submissionId?: number | null;
+  submissionInfo?: {
+    id: number;
+    title: string;
+    abstract?: string;
+  };
+  reviewerId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Review Types
+export interface Review {
+  id: string;
+  conferenceAssignmentId: string;
+  submissionId: number;
+  reviewerId: number;
+  score: number;
+  content: string;
+  internalContent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewAssignment {
+  id: string;
+  conferenceAssignmentId: string;
+  submissionId: number;
+  reviewerId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Anonymous Review for Discussion
+export interface AnonymizedReview {
+  id: string;
+  score: number;
+  content: string;
+  createdAt: string;
+  // Reviewer info is anonymized - only reviewer number shown
+  reviewerNumber?: number;
+}
+
