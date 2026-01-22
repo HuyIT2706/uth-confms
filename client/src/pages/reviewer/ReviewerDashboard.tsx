@@ -12,7 +12,7 @@ import {
     Assignment
 } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
-import { useGetMyAssignmentsQuery } from '../../redux/api/reviewsApi';
+import { useGetMyReviewerAssignmentsQuery, useAcceptReviewerAssignmentMutation, useRejectReviewerAssignmentMutation } from '../../redux/api/assignmentsApi';
 import { useGetInvitationsQuery, useUpdateInvitationStatusMutation } from '../../redux/api/invitationsApi';
 import { showToast } from '../../utils/toast';
 
@@ -38,30 +38,42 @@ interface InvitationDisplay {
 }
 
 const ReviewerDashboard = () => {
-    const { data: assignmentsData, isLoading: assignmentsLoading } = useGetMyAssignmentsQuery();
+    const { data: assignmentsData, isLoading: assignmentsLoading, refetch: refetchAssignments } = useGetMyReviewerAssignmentsQuery();
     const { data: invitationsData, isLoading: invitationsLoading, refetch: refetchInvitations } = useGetInvitationsQuery();
     const [updateInvitationStatus] = useUpdateInvitationStatusMutation();
+    const [acceptAssignment] = useAcceptReviewerAssignmentMutation();
+    const [rejectAssignment] = useRejectReviewerAssignmentMutation();
+
+    // Parse invitations to map conferenceId -> conference info
+    const invitationsMap: Record<string, { conferenceName: string; reviewDeadline?: string }> = {};
+    if (Array.isArray(invitationsData)) {
+        invitationsData.forEach((item: any) => {
+            const confId = item.conferenceId || item.conference?.id || '';
+            if (confId && !invitationsMap[confId]) {
+                invitationsMap[confId] = {
+                    conferenceName: item.conferenceName || item.conference?.name || 'Unknown Conference',
+                    reviewDeadline: item.deadlines?.review || item.raw?.conference?.deadlines?.review,
+                };
+            }
+        });
+    }
 
     // Parse and map assignments from API
     const assignments: ReviewAssignmentDisplay[] = Array.isArray(assignmentsData)
-        ? assignmentsData.map((item: any) => ({
-            id: item.id || item.uuid || '',
-            submissionId: item.submissionId || item.submission?.id || '',
-            submissionTitle: item.submissionTitle || item.submission?.title || 'Untitled',
-            conferenceId: item.conferenceId || item.conference?.id || '',
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown Conference',
-            status: (item.status || 'PENDING').toUpperCase(),
-            deadline: item.deadline || new Date().toISOString(),
-        }))
-        : assignmentsData?.data?.map((item: any) => ({
-            id: item.id || item.uuid || '',
-            submissionId: item.submissionId || item.submission?.id || '',
-            submissionTitle: item.submissionTitle || item.submission?.title || 'Untitled',
-            conferenceId: item.conferenceId || item.conference?.id || '',
-            conferenceName: item.conferenceName || item.conference?.name || 'Unknown Conference',
-            status: (item.status || 'PENDING').toUpperCase(),
-            deadline: item.deadline || new Date().toISOString(),
-        })) || [];
+        ? assignmentsData.map((item: any) => {
+            const confId = item.conferenceId || '';
+            const invitationInfo = invitationsMap[confId] || {};
+            return {
+                id: item.conferenceAssignmentId || item.id || '',
+                submissionId: item.submissionId || '',
+                submissionTitle: `Đánh giá bài báo trong ${invitationInfo.conferenceName || 'Unknown Conference'}`,
+                conferenceId: confId,
+                conferenceName: invitationInfo.conferenceName || 'Unknown Conference',
+                status: (item.status || 'PENDING').toUpperCase(),
+                deadline: invitationInfo.reviewDeadline || item.reviewDeadline || item.createdAt || new Date().toISOString(),
+            };
+        })
+        : [];
 
     // Parse and map invitations from API
     const invitations: InvitationDisplay[] = Array.isArray(invitationsData)
@@ -83,6 +95,7 @@ const ReviewerDashboard = () => {
 
     // Get display data
     const recentAssignments = assignments.slice(0, 3);
+    const pendingAssignmentsList = assignments.filter((a) => a.status === 'PENDING').slice(0, 3);
     const pendingInvitationsList = invitations.filter((i) => i.status === 'pending').slice(0, 3);
 
     const handleInvitationAction = async (invitationId: string, action: 'accept' | 'reject') => {
@@ -102,6 +115,26 @@ const ReviewerDashboard = () => {
         } catch (error) {
             showToast.error('Có lỗi xảy ra khi cập nhật lời mời');
             console.error('Error updating invitation:', error);
+        }
+    };
+
+    const handleAssignmentAction = async (assignmentId: string, action: 'accept' | 'reject') => {
+        try {
+            if (action === 'accept') {
+                await acceptAssignment(assignmentId).unwrap();
+            } else {
+                await rejectAssignment(assignmentId).unwrap();
+            }
+            
+            refetchAssignments();
+            showToast[action === 'accept' ? 'success' : 'info'](
+                action === 'accept'
+                    ? 'Đã chấp nhận phân công'
+                    : 'Đã từ chối phân công'
+            );
+        } catch (error) {
+            showToast.error('Có lỗi xảy ra khi cập nhật phân công');
+            console.error('Error updating assignment:', error);
         }
     };
 
@@ -279,35 +312,43 @@ const ReviewerDashboard = () => {
                                 <div className="flex justify-center py-12">
                                     <CircularProgress />
                                 </div>
-                            ) : recentAssignments.length > 0 ? (
+                            ) : pendingAssignmentsList.length > 0 ? (
                                 <div className="space-y-4">
-                                    {recentAssignments.map((assignment) => (
-                                        <Link
+                                    {pendingAssignmentsList.map((assignment) => (
+                                        <div
                                             key={assignment.id}
-                                            to={`/reviewer/assignments/${assignment.id}`}
-                                            className="block border border-gray-200 rounded-lg p-4 hover:border-[#008689] hover:shadow-md transition-all duration-300"
+                                            className="border border-gray-200 rounded-lg p-4 hover:border-[#008689] hover:shadow-md transition-all duration-300"
                                         >
-                                            <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-start justify-between mb-3">
                                                 <div className="flex-1">
-                                                    <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
+                                                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
                                                         {assignment.submissionTitle}
                                                     </h3>
-                                                    <p className="text-sm text-gray-500 mb-2">
-                                                        {assignment.conferenceName}
+                                                    <p className="text-xs text-gray-400">
+                                                        Gửi lúc: {formatDate(assignment.deadline)}
                                                     </p>
                                                 </div>
-                                                <span
-                                                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(
-                                                        assignment.status
-                                                    )}`}
-                                                >
-                                                    {getStatusLabel(assignment.status)}
+                                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-600">
+                                                    Đang chờ
                                                 </span>
                                             </div>
-                                            <div className="text-xs text-gray-500">
-                                                Hạn: {formatDate(assignment.deadline)}
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleAssignmentAction(assignment.id, 'accept')}
+                                                    className="flex-1 px-3 py-2 text-center text-white bg-green-600 hover:bg-green-700 rounded transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2"
+                                                >
+                                                    <Check className="w-4 h-4" />
+                                                    Chấp nhận
+                                                </button>
+                                                <button
+                                                    onClick={() => handleAssignmentAction(assignment.id, 'reject')}
+                                                    className="flex-1 px-3 py-2 text-center text-white bg-red-600 hover:bg-red-700 rounded transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2"
+                                                >
+                                                    <Close className="w-4 h-4" />
+                                                    Từ chối
+                                                </button>
                                             </div>
-                                        </Link>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
