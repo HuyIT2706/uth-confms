@@ -191,23 +191,23 @@ const ReviewerDashboard = () => {
                         <div className="flex flex-wrap gap-4">
                             <Link
                                 to="/reviewer/assignments"
-                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 hover:scale-105 hover:-translate-y-1 font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-2xl hover:bg-opacity-95 group"
                             >
-                                <AssignmentInd className="w-5 h-5 mr-2" />
+                                <AssignmentInd className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:scale-110" />
                                 Xem lời mời phân công đánh giá bài báo
                             </Link>
                             <Link
                                 to="/reviewer/invitations"
-                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 hover:scale-105 hover:-translate-y-1 font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-2xl hover:bg-opacity-95 group"
                             >
-                                <MailOutline className="w-5 h-5 mr-2" />
+                                <MailOutline className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:scale-110" />
                                 Xem lời mời tham gia hội nghị
                             </Link>
                             <Link
                                 to="/reviewer/submissions"
-                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                                className="inline-flex items-center px-8 py-4 bg-white text-[#008689] hover:bg-gray-100 hover:scale-105 hover:-translate-y-1 font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-2xl hover:bg-opacity-95 group"
                             >
-                                <Assignment className="w-5 h-5 mr-2" />
+                                <Assignment className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:scale-110" />
                                 Xem danh sách bài được giao
                             </Link>
 
@@ -224,30 +224,33 @@ const ReviewerDashboard = () => {
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Total Assignments */}
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                        <Link 
+                            to="/reviewer/submissions"
+                            className="block bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200 hover:scale-105 hover:shadow-lg hover:border-blue-300 transition-all duration-300 cursor-pointer group"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-medium text-gray-700">
                                     Tổng bài được giao
                                 </h3>
-                                <AssignmentInd className="w-6 h-6 text-blue-600" />
+                                <AssignmentInd className="w-6 h-6 text-blue-600 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
                             </div>
-                            <p className="text-4xl font-bold text-gray-900">
+                            <p className="text-4xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors duration-300">
                                 {totalAssignments}
                             </p>
                             <p className="text-sm text-gray-600 mt-2">
                                 từ các hội nghị khác nhau
                             </p>
-                        </div>
+                        </Link>
 
                         {/* Completed Reviews */}
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200 hover:scale-105 hover:shadow-lg hover:border-green-300 transition-all duration-300 cursor-pointer group">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-medium text-gray-700">
                                     Hoàn thành
                                 </h3>
-                                <CheckCircle className="w-6 h-6 text-green-600" />
+                                <CheckCircle className="w-6 h-6 text-green-600 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
                             </div>
-                            <p className="text-4xl font-bold text-gray-900">
+                            <p className="text-4xl font-bold text-gray-900 group-hover:text-green-700 transition-colors duration-300">
                                 {completedReviews}
                             </p>
                             <p className="text-sm text-gray-600 mt-2">
@@ -256,36 +259,42 @@ const ReviewerDashboard = () => {
                         </div>
 
                         {/* Pending Reviews */}
-                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200">
+                        <Link 
+                            to="/reviewer/invitations"
+                            className="block bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200 hover:scale-105 hover:shadow-lg hover:border-orange-300 transition-all duration-300 cursor-pointer group"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-medium text-gray-700">
                                     Đang chờ
                                 </h3>
-                                <Schedule className="w-6 h-6 text-orange-600" />
+                                <Schedule className="w-6 h-6 text-orange-600 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
                             </div>
-                            <p className="text-4xl font-bold text-gray-900">
+                            <p className="text-4xl font-bold text-gray-900 group-hover:text-orange-700 transition-colors duration-300">
                                 {pendingReviews}
                             </p>
                             <p className="text-sm text-gray-600 mt-2">
                                 bài cần đánh giá
                             </p>
-                        </div>
+                        </Link>
 
                         {/* Accepted Invitations */}
-                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+                        <Link 
+                            to="/reviewer/invitations?tab=accepted"
+                            className="block bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200 hover:scale-105 hover:shadow-lg hover:border-purple-300 transition-all duration-300 cursor-pointer group"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-medium text-gray-700">
                                     Hội nghị tham gia
                                 </h3>
-                                <TrendingUp className="w-6 h-6 text-purple-600" />
+                                <TrendingUp className="w-6 h-6 text-purple-600 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
                             </div>
-                            <p className="text-4xl font-bold text-gray-900">
+                            <p className="text-4xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors duration-300">
                                 {acceptedInvitations}
                             </p>
                             <p className="text-sm text-gray-600 mt-2">
                                 lời mời đã chấp nhận
                             </p>
-                        </div>
+                        </Link>
                     </div>
                 </div>
             </div>
