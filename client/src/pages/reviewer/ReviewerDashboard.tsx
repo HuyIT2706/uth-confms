@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
     RateReview,
@@ -9,7 +10,8 @@ import {
     AssignmentInd,
     Check,
     Close,
-    Assignment
+    Assignment,
+    Refresh
 } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { useGetMyReviewerAssignmentsQuery, useAcceptReviewerAssignmentMutation, useRejectReviewerAssignmentMutation } from '../../redux/api/assignmentsApi';
@@ -43,6 +45,24 @@ const ReviewerDashboard = () => {
     const [updateInvitationStatus] = useUpdateInvitationStatusMutation();
     const [acceptAssignment] = useAcceptReviewerAssignmentMutation();
     const [rejectAssignment] = useRejectReviewerAssignmentMutation();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Auto-refresh data every 15 seconds
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            setIsRefreshing(true);
+            try {
+                await Promise.all([
+                    refetchAssignments(),
+                    refetchInvitations()
+                ]);
+            } finally {
+                setTimeout(() => setIsRefreshing(false), 500); // Brief loading indicator
+            }
+        }, 15000); // 15 seconds
+
+        return () => clearInterval(interval);
+    }, [refetchAssignments, refetchInvitations]);
 
     // Parse invitations to map conferenceId -> conference info
     const invitationsMap: Record<string, { conferenceName: string; reviewDeadline?: string }> = {};
@@ -179,12 +199,20 @@ const ReviewerDashboard = () => {
     return (
         <div>
             {/* Hero Section */}
-            <div className="bg-gradient-to-br from-[#008689] to-[#006666] py-16 px-6">
+            <div className="bg-gradient-to-br from-[#008689] to-[#006666] py-16 px-6 relative">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-white">
-                        <h1 className="text-5xl font-bold mb-4">
-                            Bảng điều khiển Reviewer
-                        </h1>
+                        <div className="flex items-center justify-between mb-4">
+                            <h1 className="text-5xl font-bold">
+                                Bảng điều khiển Reviewer
+                            </h1>
+                            {isRefreshing && (
+                                <div className="flex items-center gap-2 text-white/80">
+                                    <Refresh className="w-5 h-5 animate-spin" />
+                                    <span className="text-sm">Đang cập nhật...</span>
+                                </div>
+                            )}
+                        </div>
                         <p className="text-xl text-white/90 mb-8">
                             Quản lý các bài báo được giao, lời mời hội nghị và tiến độ đánh giá
                         </p>
