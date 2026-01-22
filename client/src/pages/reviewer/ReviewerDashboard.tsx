@@ -95,8 +95,8 @@ const ReviewerDashboard = () => {
 
     // Get display data
     const recentAssignments = assignments.slice(0, 3);
-    const pendingAssignmentsList = assignments.filter((a) => a.status === 'PENDING').slice(0, 3);
-    const pendingInvitationsList = invitations.filter((i) => i.status === 'pending').slice(0, 3);
+    const pendingAssignmentsList = assignments.filter((a) => a.status === 'PENDING');
+    const pendingInvitationsList = invitations.filter((i) => i.status === 'pending');
 
     const handleInvitationAction = async (invitationId: string, action: 'accept' | 'reject') => {
         try {
@@ -313,7 +313,7 @@ const ReviewerDashboard = () => {
                                     <CircularProgress />
                                 </div>
                             ) : pendingAssignmentsList.length > 0 ? (
-                                <div className="space-y-4">
+                                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                                     {pendingAssignmentsList.map((assignment) => (
                                         <div
                                             key={assignment.id}
@@ -378,7 +378,7 @@ const ReviewerDashboard = () => {
                                     <CircularProgress />
                                 </div>
                             ) : pendingInvitationsList.length > 0 ? (
-                                <div className="space-y-4">
+                                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                                     {pendingInvitationsList.map((invitation) => (
                                         <div
                                             key={invitation.id}
